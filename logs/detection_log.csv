@@ -854,3 +854,38 @@ ntdll.dll          00007FFAE7F28D9C  Unknown               Unknown  Unknown
 "
 2025-10-14 14:14:16,多帧验证设置,多帧验证已启用，需要连续2帧检测到同一物体
 2025-10-14 14:14:51,多帧验证设置,多帧验证已禁用
+2025-10-14 15:06:07,系统启动,地铁屏蔽门间隙检测系统正在启动...
+2025-10-14 15:06:15,模型加载,成功加载模型: yolov5s.pt
+2025-10-14 15:06:17,摄像头检测,准备启动摄像头检测进程
+2025-10-14 15:06:17,摄像头检测,开始摄像头实时检测，命令: D:\AppInstall\pythonPyTorch+yolo\anaconda\install\envs\pytorch\python.exe e:\kaifa\gapDetection_trae\detect.py --source 0 --conf-thres 0.4 --iou-thres 0.45 --view-img --classes 0 24 25 26 28 39 41 67 27 77
+2025-10-14 15:06:17,摄像头检测,摄像头检测进程已成功启动
+2025-10-14 15:06:19,检测开始,"源: 0, 置信度阈值: 0.4"
+2025-10-14 15:06:19,错误,摄像头检测进程意外退出，退出码: 3221225786
+2025-10-14 15:06:19,错误,"进程错误: 2025-10-14 15:06:19,517 - detect - INFO - 
+2025-10-14 15:06:19,518 - detect - INFO - в: {'weights': 'yolov5s.pt', 'source': '0', 'conf_thres': 0.4, 'iou_thres': 0.45, 'classes': [0, 24, 25, 26, 28, 39, 41, 67, 27, 77], 'view_img': True, 'no_view': False, 'save_txt': False, 'no_save': False, 'max_frames': 0, 'timeout': 0}
+2025-10-14 15:06:19,518 - detect - INFO - ʼĿ
+"
+2025-10-14 15:09:32,系统启动,地铁屏蔽门间隙检测系统正在启动...
+2025-10-14 15:09:36,模型加载,成功加载模型: yolov5s.pt
+2025-10-14 15:09:38,摄像头检测,准备启动摄像头检测进程
+2025-10-14 15:09:38,摄像头检测,开始摄像头实时检测，命令: D:\AppInstall\pythonPyTorch+yolo\anaconda\install\python.exe e:\kaifa\gapDetection_trae\detect.py --source 0 --conf-thres 0.4 --iou-thres 0.45 --view-img --classes 0 24 25 26 28 39 41 67 27 77
+2025-10-14 15:09:38,摄像头检测,摄像头检测进程已成功启动
+2025-10-14 15:09:40,错误,摄像头检测进程意外退出，退出码: 3221225786
+2025-10-14 15:09:46,状态变化,从 SystemState.IDLE 切换到 SystemState.CLOSING
+2025-10-14 15:09:46,检测控制,开始摄像头实时检测
+2025-10-14 15:09:46,摄像头检测,准备启动摄像头检测进程
+2025-10-14 15:09:46,摄像头检测,开始摄像头实时检测，命令: D:\AppInstall\pythonPyTorch+yolo\anaconda\install\python.exe e:\kaifa\gapDetection_trae\detect.py --source 0 --conf-thres 0.4 --iou-thres 0.45 --view-img --classes 0 24 25 26 28 39 41 67 27 77
+2025-10-14 15:09:46,摄像头检测,摄像头检测进程已成功启动
+2025-10-14 15:09:46,状态变化,从 SystemState.CLOSING 切换到 SystemState.ALARM
+2025-10-14 15:09:46,检测控制,停止摄像头实时检测
+2025-10-14 15:09:47,摄像头检测,尝试停止摄像头检测进程
+2025-10-14 15:09:47,摄像头检测,摄像头检测进程已停止
+2025-10-14 16:02:21,系统启动,地铁屏蔽门间隙检测系统正在启动...
+2025-10-14 16:04:20,系统启动,地铁屏蔽门间隙检测系统正在启动...
+2025-10-14 16:04:33,模型加载,成功加载模型: yolov5s.pt
+2025-10-14 16:04:40,摄像头检测,准备启动摄像头检测进程
+2025-10-14 16:04:40,摄像头检测,开始摄像头实时检测，命令: D:\AppInstall\pythonPyTorch+yolo\anaconda\install\python.exe e:\kaifa\gapDetection_trae\detect.py --source 0 --conf-thres 0.4 --iou-thres 0.45 --view-img --classes 0 24 25 26 28 39 41 67 27 77
+2025-10-14 16:04:40,摄像头检测,摄像头检测进程已成功启动
+2025-10-14 16:04:43,错误,摄像头检测进程意外退出，退出码: 3221225786
+2025-10-14 16:04:48,多帧验证设置,多帧验证已启用，需要连续2帧检测到同一物体
+2025-10-14 16:04:50,多帧验证设置,多帧验证已禁用
