@@ -407,9 +407,11 @@ def export_openvino(file, metadata, half, int8, data, prefix=colorstr("OpenVINO:
     Examples:
         ```python
         from pathlib import Path
-        from ultralytics import YOLOv5
-
-        model = YOLOv5('yolov5s.pt')
+        # 不使用ultralytics，使用本地实现
+        # # 不使用ultralytics，使用本地实现
+    # from ultralytics import YOLOv5
+    # 直接使用PyTorch加载模型
+    # 假设这里有适当的本地模型加载代码
         export_openvino(Path('yolov5s.onnx'), metadata={'names': model.names, 'stride': model.stride}, half=True,
                         int8=False, data='data.yaml')
         ```
@@ -620,7 +622,8 @@ def export_engine(
 
     Example:
         ```python
-        from ultralytics import YOLOv5
+        # 不使用ultralytics，使用本地实现
+    # from ultralytics import YOLOv5
         import torch
         from pathlib import Path
 

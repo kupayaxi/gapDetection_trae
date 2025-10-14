@@ -44,7 +44,10 @@ if str(ROOT) not in sys.path:
     sys.path.append(str(ROOT))  # add ROOT to PATH
 ROOT = Path(os.path.relpath(ROOT, Path.cwd()))  # relative
 
-from ultralytics.utils.patches import torch_load
+# 不使用ultralytics，使用本地实现
+def torch_load(file_path, map_location=None, **kwargs):
+    import torch
+    return torch.load(file_path, map_location=map_location, **kwargs)
 
 import val as validate  # for end-of-epoch mAP
 from models.experimental import attempt_load

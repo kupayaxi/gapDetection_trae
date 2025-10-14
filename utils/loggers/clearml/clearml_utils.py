@@ -9,7 +9,8 @@ import matplotlib.image as mpimg
 import matplotlib.pyplot as plt
 import numpy as np
 import yaml
-from ultralytics.utils.plotting import Annotator, colors
+# 不使用ultralytics，使用本地实现
+# from ultralytics.utils.plotting import Annotator, colors
 
 try:
     import clearml

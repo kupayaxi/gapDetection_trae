@@ -9,7 +9,10 @@ from pathlib import Path
 
 import torch
 import yaml
-from ultralytics.utils.patches import torch_load
+# 不使用ultralytics，使用本地实现
+def torch_load(file_path, map_location=None, **kwargs):
+    import torch
+    return torch.load(file_path, map_location=map_location, **kwargs)
 
 FILE = Path(__file__).resolve()
 ROOT = FILE.parents[2]  # YOLOv5 root directory

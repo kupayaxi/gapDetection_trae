@@ -6,7 +6,9 @@ import math
 import numpy as np
 import torch
 import torch.nn as nn
-from ultralytics.utils.patches import torch_load
+# 使用PyTorch标准的torch.load函数替代ultralytics.utils.patches.torch_load
+def torch_load(file_path, map_location=None, **kwargs):
+    return torch.load(file_path, map_location=map_location, **kwargs)
 
 from utils.downloads import attempt_download
 

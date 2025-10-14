@@ -1,0 +1,41 @@
+detection:
+  agnostic_nms: false
+  augment: false
+  confidence_threshold: 0.4
+  enable_small_object_detection: true
+  frame_validation_count: 2
+  iou_threshold: 0.45
+  max_det: 1000
+  relevant_classes:
+  - 0
+  - 24
+  - 25
+  - 26
+  - 28
+  - 39
+  - 41
+  - 67
+  - 27
+  - 77
+  roi:
+  - 300
+  - 200
+  - 900
+  - 500
+  small_object_area_threshold: 2500
+  weights: yolov5s.pt
+log:
+  backup_count: 5
+  file_path: logs/detection_log.csv
+  max_file_size: 10
+ui:
+  alarm_sound: true
+  line_thickness: 2
+  show_confidence: true
+  show_labels: true
+  update_interval_ms: 100
+video:
+  fps: 30
+  height: 720
+  source: 0
+  width: 1280

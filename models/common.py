@@ -22,21 +22,12 @@ import torch.nn as nn
 from PIL import Image
 from torch.cuda import amp
 
-# Import 'ultralytics' package or install if missing
-try:
-    import ultralytics
-
-    assert hasattr(ultralytics, "__version__")  # verify package is not directory
-except (ImportError, AssertionError):
-    import os
-
-    os.system("pip install -U ultralytics")
-    import ultralytics
-
-from ultralytics.utils.plotting import Annotator, colors, save_one_box
+# 不使用ultralytics，直接使用PyTorch和YOLOv5原生代码
+# 移除对ultralytics的依赖，避免安装问题
 
 from utils import TryExcept
 from utils.dataloaders import exif_transpose, letterbox
+from utils.plots import Annotator, colors, save_one_box
 from utils.general import (
     LOGGER,
     ROOT,
