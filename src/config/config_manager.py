@@ -1,6 +1,11 @@
 import yaml
 import os
 from pathlib import Path
+import logging
+
+# 设置日志记录器
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 
 class ConfigManager:
@@ -12,17 +17,46 @@ class ConfigManager:
         Args:
             config_path: 配置文件路径，默认使用当前目录下的config.yaml
         """
+        # 首先检查当前目录下的config.yaml
         if config_path is None:
-            config_path = Path(__file__).parent.parent.parent / "config.yaml"
-        self.config_path = config_path
+            # 尝试多个可能的配置文件路径
+            possible_paths = [
+                Path.cwd() / "config.yaml",  # 当前工作目录
+                Path(__file__).parent.parent.parent / "config.yaml"  # 相对于模块的路径
+            ]
+            
+            # 找到第一个存在的配置文件
+            found_path = None
+            for path in possible_paths:
+                if path.exists():
+                    found_path = path
+                    break
+            
+            # 如果找到了配置文件，使用它；否则使用默认路径
+            self.config_path = found_path.resolve() if found_path else (Path.cwd() / "config.yaml").resolve()
+        else:
+            self.config_path = Path(config_path).resolve()
+        
+        # 记录正在使用的配置文件路径，用于调试
+        logger.info(f"正在使用配置文件: {self.config_path}")
+        
         self.config = self._load_default_config()
         
-        # 如果配置文件存在，加载配置
-        if os.path.exists(config_path):
-            self.load_config()
+        # 如果配置文件存在，强制从文件加载配置，直接替换而不是合并
+        if self.config_path.exists():
+            try:
+                with open(self.config_path, 'r', encoding='utf-8') as f:
+                    loaded_config = yaml.safe_load(f)
+                    if loaded_config:
+                        # 记录加载的配置，用于调试
+                        logger.info(f"从配置文件加载的配置: {loaded_config}")
+                        self.config = loaded_config  # 直接替换整个配置字典
+            except Exception as e:
+                logger.error(f"加载配置文件失败: {e}")
         else:
             # 否则保存默认配置
             self.save_config()
+            logger.info(f"配置文件不存在，已创建默认配置: {self.config_path}")
     
     def _load_default_config(self):
         """加载默认配置"""
@@ -79,12 +113,13 @@ class ConfigManager:
         """保存配置到文件"""
         try:
             # 确保目录存在
-            os.makedirs(os.path.dirname(self.config_path), exist_ok=True)
+            os.makedirs(self.config_path.parent, exist_ok=True)
             with open(self.config_path, 'w', encoding='utf-8') as f:
                 yaml.dump(self.config, f, default_flow_style=False, allow_unicode=True)
+            logger.info(f"配置已保存到: {self.config_path}")
             return True
         except Exception as e:
-            print(f"保存配置文件失败: {e}")
+            logger.error(f"保存配置文件失败: {e}")
             return False
     
     def _merge_config(self, base, update):
@@ -99,40 +134,42 @@ class ConfigManager:
         """获取配置项
         
         Args:
-            key_path: 配置键路径，支持点表示法，如 "detection.confidence_threshold"
-            default: 默认值
+            key_path: 配置项的路径，使用点号分隔，例如 "detection.confidence_threshold"
+            default: 默认值，如果配置项不存在则返回
             
         Returns:
-            配置值或默认值
+            配置项的值或默认值
         """
         keys = key_path.split('.')
         value = self.config
         
-        for key in keys:
-            if isinstance(value, dict) and key in value:
+        try:
+            for key in keys:
                 value = value[key]
-            else:
-                return default
-        
-        return value
+            return value
+        except (KeyError, TypeError):
+            return default
     
     def set(self, key_path, value):
         """设置配置项
         
         Args:
-            key_path: 配置键路径，支持点表示法，如 "detection.confidence_threshold"
-            value: 配置值
+            key_path: 配置项的路径，使用点号分隔，例如 "detection.confidence_threshold"
+            value: 配置项的新值
         """
         keys = key_path.split('.')
         config = self.config
         
-        # 遍历键路径，直到最后一个键
+        # 导航到目标配置项的父级
         for key in keys[:-1]:
-            if key not in config or not isinstance(config[key], dict):
+            if key not in config:
+                config[key] = {}
+            elif not isinstance(config[key], dict):
+                # 如果中间路径不是字典，将其转换为字典
                 config[key] = {}
             config = config[key]
         
-        # 设置最后一个键的值
+        # 设置目标配置项的值
         config[keys[-1]] = value
     
     def update_config(self, new_config):

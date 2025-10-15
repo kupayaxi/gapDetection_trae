@@ -174,29 +174,56 @@ class MainWindow(QMainWindow):
         param_group = QGroupBox("检测参数")
         param_layout = QGridLayout()
         
+        # 模型选择
+        param_layout.addWidget(QLabel("检测模型:"), 0, 0)
+        self.model_combo = QComboBox()
+        # 预定义的YOLOv5模型选项
+        self.available_models = [
+            "yolov5n.pt",  # 最小最快的模型
+            "yolov5s.pt",  # 小型轻量模型
+            "yolov5m.pt",  # 中型模型
+            "yolov5l.pt",  # 大型模型
+            "yolov5x.pt"   # 超大模型
+        ]
+        # 添加自定义模型选项（支持用户通过文件对话框选择）
+        self.model_combo.addItems(self.available_models)
+        self.model_combo.addItem("自定义...")
+        # 获取当前使用的模型
+        current_model = detection_manager.weights_path.split(os.path.sep)[-1] if hasattr(detection_manager, 'weights_path') else "yolov5s.pt"
+        # 尝试找到当前模型在下拉列表中的索引，如果找不到则默认选择yolov5s.pt
+        try:
+            model_index = self.available_models.index(current_model)
+            self.model_combo.setCurrentIndex(model_index)
+        except ValueError:
+            # 如果是自定义模型，显示在下拉框中
+            if current_model not in self.available_models:
+                self.model_combo.addItem(current_model)
+                self.model_combo.setCurrentText(current_model)
+        param_layout.addWidget(self.model_combo, 0, 1, 1, 2)
+        
         # 置信度阈值
-        param_layout.addWidget(QLabel("置信度阈值:"), 0, 0)
+        param_layout.addWidget(QLabel("置信度阈值:"), 1, 0)
         self.confidence_slider = QSlider(Qt.Horizontal)
         self.confidence_slider.setRange(10, 90)
         self.confidence_slider.setValue(50)
         self.confidence_value = QLabel("50%")
-        param_layout.addWidget(self.confidence_slider, 0, 1)
-        param_layout.addWidget(self.confidence_value, 0, 2)
+        param_layout.addWidget(self.confidence_slider, 1, 1)
+        param_layout.addWidget(self.confidence_value, 1, 2)
         
         # 多帧验证开关
         self.frame_validation_checkbox = QCheckBox("启用多帧验证")
         # 从detection_manager获取当前设置
         self.frame_validation_checkbox.setChecked(detection_manager.get_enable_frame_validation())
-        param_layout.addWidget(self.frame_validation_checkbox, 1, 0, 1, 3)
+        param_layout.addWidget(self.frame_validation_checkbox, 2, 0, 1, 3)
         
         # 连续帧数
-        param_layout.addWidget(QLabel("连续帧数:"), 2, 0)
+        param_layout.addWidget(QLabel("连续帧数:"), 3, 0)
         self.frame_count_slider = QSlider(Qt.Horizontal)
         self.frame_count_slider.setRange(1, 5)
         self.frame_count_slider.setValue(2)
         self.frame_count_value = QLabel("2")
-        param_layout.addWidget(self.frame_count_slider, 2, 1)
-        param_layout.addWidget(self.frame_count_value, 2, 2)
+        param_layout.addWidget(self.frame_count_slider, 3, 1)
+        param_layout.addWidget(self.frame_count_value, 3, 2)
         
         param_group.setLayout(param_layout)
         
@@ -283,6 +310,9 @@ class MainWindow(QMainWindow):
         self.roi_enable_checkbox.stateChanged.connect(self.on_roi_enable_changed)
         self.apply_roi_button.clicked.connect(self.apply_roi_settings)
         self.roi_edit_button.clicked.connect(self.toggle_roi_editing_mode)
+        
+        # 设置模型选择信号连接
+        self.model_combo.currentIndexChanged.connect(self.on_model_selection_changed)
     
     def start_detection(self):
         """开始检测（内部方法，通过信号控制调用）"""
@@ -621,6 +651,92 @@ class MainWindow(QMainWindow):
             self.statusBar().showMessage(result_text)
             self.result_text.append(result_text)
     
+    def on_model_selection_changed(self, index):
+        """处理模型选择变更"""
+        model_name = self.model_combo.currentText()
+        
+        # 如果选择的是"自定义...", 打开文件对话框
+        if model_name == "自定义...":
+            from PyQt5.QtWidgets import QFileDialog
+            file_path, _ = QFileDialog.getOpenFileName(
+                self,
+                "选择模型文件",
+                "",
+                "PyTorch 模型 (*.pt);;所有文件 (*)"
+            )
+            
+            if file_path:
+                # 获取文件名
+                custom_model_name = os.path.basename(file_path)
+                # 检查是否已存在于下拉列表中
+                if custom_model_name not in [self.model_combo.itemText(i) for i in range(self.model_combo.count())]:
+                    # 移除"自定义..."临时选项
+                    self.model_combo.removeItem(self.model_combo.findText("自定义..."))
+                    # 添加自定义模型
+                    self.model_combo.addItem(custom_model_name)
+                    # 重新添加"自定义..."选项
+                    self.model_combo.addItem("自定义...")
+                # 设置当前选择为自定义模型
+                self.model_combo.setCurrentText(custom_model_name)
+                # 使用完整路径
+                model_path = file_path
+            else:
+                # 如果取消选择，保持原来的模型
+                return
+        else:
+            # 对于预定义模型，使用模型名
+            model_path = model_name
+        
+        # 尝试切换模型
+        self.switch_detection_model(model_path)
+        
+    def switch_detection_model(self, model_path):
+        """切换检测模型
+        
+        Args:
+            model_path: 模型路径或模型名称
+        """
+        # 显示加载状态
+        model_name = os.path.basename(model_path)
+        self.statusBar().showMessage(f"正在加载模型: {model_name}...")
+        log_manager.log_system_event("模型切换", f"开始切换到模型: {model_path}")
+        
+        try:
+            # 保存当前检测状态
+            was_running = detection_manager.camera_detection_running
+            
+            # 停止当前检测进程
+            if was_running:
+                log_manager.log_system_event("模型切换", "停止当前检测进程")
+                detection_manager.stop_camera_detection()
+            
+            # 更新配置
+            log_manager.log_system_event("模型切换", f"更新配置中的模型路径为: {model_path}")
+            config_manager.set("detection.weights", model_path)
+            config_manager.save_config()
+            
+            # 切换模型
+            log_manager.log_system_event("模型切换", "开始执行模型切换")
+            if detection_manager.switch_model(model_path):
+                success_msg = f"模型切换成功: {model_name}"
+                self.statusBar().showMessage(success_msg)
+                log_manager.log_system_event("模型切换", success_msg)
+                # 如果之前检测在运行，重启检测
+                if was_running:
+                    log_manager.log_system_event("模型切换", "重启检测进程")
+                    detection_manager.start_camera_detection()
+            else:
+                error_msg = f"模型切换失败: {model_name}"
+                self.statusBar().showMessage(error_msg)
+                log_manager.log_error(error_msg)
+                QMessageBox.critical(self, "错误", f"模型切换失败:\n可能是模型文件不存在或格式不正确")
+        except Exception as e:
+            error_msg = f"模型切换异常: {str(e)}"
+            self.statusBar().showMessage(error_msg)
+            log_manager.log_error(f"模型切换异常: {str(e)}")
+            log_manager.log_error(traceback.format_exc())
+            QMessageBox.critical(self, "错误", f"模型切换失败:\n{str(e)}")
+        
     def closeEvent(self, event):
         """窗口关闭事件"""
         reply = QMessageBox.question(

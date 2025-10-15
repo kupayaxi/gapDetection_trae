@@ -6,6 +6,8 @@ import time
 import numpy as np
 from collections import deque
 import torch
+import torch.backends.cudnn as cudnn  # 添加cudnn支持
+from datetime import datetime  # 添加datetime支持
 import select  # 添加select模块用于非阻塞IO
 import cv2  # 添加cv2模块
 import signal
@@ -167,8 +169,9 @@ class DetectionManager:
         self.monitor_thread = None
         self.monitor_stop_event = threading.Event()
         
-        # 加载模型
-        self.load_model()
+        # 注意：不再在初始化时自动加载模型，而是在需要时再加载
+        # 这样可以避免在配置文件尚未完全加载时就下载错误的模型
+        # self.load_model()
     
     def register_detection_callback(self, callback):
         """注册检测结果回调函数
@@ -241,6 +244,13 @@ class DetectionManager:
         try:
             # 停止已有的检测进程
             self.stop_camera_detection()
+            
+            # 从配置文件中获取最新的模型路径，确保使用配置文件中指定的模型
+            model_from_config = config_manager.get("detection.weights", "yolov5s.pt")
+            if model_from_config != os.path.basename(self.weights_path):
+                log_manager.log_system_event("摄像头检测", f"使用配置文件中的模型: {model_from_config}")
+                # 更新当前模型路径
+                self.weights_path = model_from_config
             
             log_manager.log_system_event("摄像头检测", "准备启动摄像头检测进程")
             
@@ -866,6 +876,100 @@ class DetectionManager:
         # 对于地铁屏蔽门场景，我们更关注左右边缘（门的间隙）
         return near_left_edge or near_right_edge
     
+    def switch_model(self, weights_path):
+        """动态切换检测模型
+        
+        Args:
+            weights_path: 新的模型权重路径或模型名称
+            
+        Returns:
+            bool: 是否切换成功
+        """
+        with self.lock:
+            try:
+                # 保存当前模型路径
+                old_weights_path = self.weights_path
+                log_manager.log_system_event("模型切换", f"当前模型: {old_weights_path}, 目标模型: {weights_path}")
+                
+                # 更新模型路径
+                self.weights_path = weights_path
+                
+                # 检查本地模型文件，优先使用项目根目录、models目录和src目录下的模型
+                project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+                src_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+                models_dir = os.path.join(project_root, 'models')
+                
+                possible_paths = [
+                    self.weights_path,  # 绝对路径或相对当前工作目录
+                    os.path.join(project_root, self.weights_path),  # 项目根目录
+                    os.path.join(models_dir, self.weights_path),  # models目录
+                    os.path.join(src_dir, self.weights_path)  # src目录
+                ]
+                
+                found_path = None
+                for path in possible_paths:
+                    if os.path.exists(path):
+                        found_path = os.path.abspath(path)
+                        self.weights_path = found_path
+                        log_manager.log_system_event("模型切换", f"找到模型文件: {found_path}")
+                        break
+                
+                # 如果找不到模型文件，对于预定义的模型名称，可以尝试从YOLOv5的默认位置获取
+                if found_path is None:
+                    # 检查是否是预定义的YOLOv5模型
+                    predefined_models = ['yolov5n.pt', 'yolov5s.pt', 'yolov5m.pt', 'yolov5l.pt', 'yolov5x.pt']
+                    if self.weights_path in predefined_models:
+                        log_manager.log_system_event("模型切换", f"使用预定义模型: {self.weights_path}")
+                        # 不修改路径，让attempt_load自动处理下载和加载
+                        found_path = self.weights_path
+                    else:
+                        log_manager.log_error(f"模型文件不存在: {self.weights_path}")
+                        # 恢复原模型路径
+                        self.weights_path = old_weights_path
+                        return False
+                
+                # 尝试重新加载模型
+                # 保存原模型引用，以便在加载失败时恢复
+                old_model = self.model
+                # 添加属性存在性检查，防止访问未初始化的属性
+                old_device = getattr(self, 'device', None)
+                old_img_size = getattr(self, 'img_size', None)
+                old_nms = getattr(self, 'non_max_suppression', None)
+                old_scale_coords = getattr(self, 'scale_coords', None)
+                old_letterbox = getattr(self, 'letterbox', None)
+                
+                # 重置模型相关属性
+                self.model = None
+                self.device = None
+                self.img_size = None
+                self.non_max_suppression = None
+                self.scale_coords = None
+                self.letterbox = None
+                
+                # 尝试加载新模型
+                if self.load_model():
+                    log_manager.log_system_event("模型切换", f"成功切换到模型: {self.weights_path}")
+                    # 确保模型在评估模式
+                    if self.model is not None:
+                        self.model.eval()
+                    return True
+                else:
+                    # 加载失败，恢复原模型
+                    log_manager.log_error(f"加载新模型失败，恢复原模型: {old_weights_path}")
+                    self.weights_path = old_weights_path
+                    # 安全地恢复原模型属性
+                    self.model = old_model
+                    self.device = old_device
+                    self.img_size = old_img_size
+                    self.non_max_suppression = old_nms
+                    self.scale_coords = old_scale_coords
+                    self.letterbox = old_letterbox
+                    return False
+            except Exception as e:
+                log_manager.log_error(f"切换模型异常: {str(e)}")
+                log_manager.log_error(traceback.format_exc())
+                return False
+
     def update_settings(self, settings):
         """更新检测设置
         
@@ -913,5 +1017,29 @@ class DetectionManager:
         log_manager.log_system_event("检测参数更新", f"已更新检测参数: {settings}")
 
 
-# 创建全局检测管理器实例
-detection_manager = DetectionManager()
+# 确保配置文件已加载，然后创建全局检测管理器实例
+# 首先从配置文件中获取正确的模型路径
+# 直接从配置字典中获取weights，确保使用配置文件中的模型
+model_from_config = config_manager.config.get('detection', {}).get('weights', 'yolov5s.pt')
+
+# 检查本地模型文件，优先使用项目根目录和src目录下的模型
+project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+possible_paths = [
+    model_from_config,
+    os.path.join(project_root, model_from_config),
+    os.path.join(project_root, 'src', model_from_config)
+]
+
+# 找到存在的模型文件
+final_model_path = model_from_config  # 默认使用配置中的路径
+for path in possible_paths:
+    if os.path.exists(path):
+        final_model_path = os.path.abspath(path)
+        print(f"找到本地模型文件: {final_model_path}")
+        break
+
+# 创建全局检测管理器实例，并传入正确的模型路径
+detection_manager = DetectionManager(weights_path=final_model_path)
+
+# 现在显式加载模型
+detection_manager.load_model()
