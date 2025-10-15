@@ -1,10 +1,32 @@
 import csv
 import os
-import time
+import logging
 from datetime import datetime
+import sys
 from pathlib import Path
-from ..config.config_manager import config_manager
 
+# 导入配置管理器 - 使用延迟导入避免相对导入问题
+_config_manager = None
+
+def _get_config_manager():
+    global _config_manager
+    if _config_manager is None:
+        try:
+            from config.config_manager import config_manager
+            _config_manager = config_manager
+        except ImportError:
+            try:
+                from src.config.config_manager import config_manager
+                _config_manager = config_manager
+            except ImportError:
+                print("警告：无法导入config_manager，使用默认配置")
+                class DefaultConfigManager:
+                    def get_log_config(self):
+                        return {"log_level": "INFO", "log_file": os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "logs", "system.log")}
+                    def get(self, key, default=None):
+                        return default
+                _config_manager = DefaultConfigManager()
+    return _config_manager
 
 class LogManager:
     """日志管理模块，负责记录系统日志和检测结果"""
@@ -15,11 +37,14 @@ class LogManager:
         Args:
             log_file: 日志文件路径，如果不指定则从配置中读取
         """
+        # 获取配置管理器
+        config_mgr = _get_config_manager()
+        
         if log_file is None:
-            log_file = config_manager.get("log.file_path", "logs/detection_log.csv")
+            log_file = getattr(config_mgr, 'get', lambda key, default=None: default)("log.file_path", "logs/detection_log.csv")
         self.log_file = Path(log_file)
-        self.max_file_size = config_manager.get("log.max_file_size", 10)  # MB
-        self.backup_count = config_manager.get("log.backup_count", 5)
+        self.max_file_size = getattr(config_mgr, 'get', lambda key, default=None: default)("log.max_file_size", 10)  # MB
+        self.backup_count = getattr(config_mgr, 'get', lambda key, default=None: default)("log.backup_count", 5)
         
         # 确保日志目录存在
         os.makedirs(os.path.dirname(self.log_file), exist_ok=True)
@@ -228,7 +253,6 @@ class LogManager:
         except Exception as e:
             print(f"查询日志失败: {e}")
             return []
-
 
 # 创建全局日志管理器实例
 log_manager = LogManager()

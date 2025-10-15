@@ -1,120 +1,27 @@
 import sys
+import os
 import cv2
 import threading
 import time
+
+# 添加项目根目录到Python路径
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 from PyQt5.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QLabel, 
     QPushButton, QGroupBox, QGridLayout, QSlider, QComboBox,
-    QMessageBox, QSplitter, QFrame, QCheckBox, QTextEdit, QScrollArea
+    QMessageBox, QSplitter, QFrame, QCheckBox, QTextEdit, QScrollArea, QDialog
 )
-from PyQt5.QtCore import Qt, QTimer, pyqtSignal, QThread, QObject
+from PyQt5.QtCore import Qt, QTimer, pyqtSignal, QThread, QObject, pyqtSlot
+import threading
 from PyQt5.QtGui import QImage, QPixmap, QFont
 
-# 实际的视频捕获器类
-class VideoCapturer:
-    def __init__(self):
-        self._cap = None
-        self._running = False
-        self._thread = None
-        self._frame_callbacks = []
-        self._roi = None
-        self._lock = threading.RLock()
-    
-    def register_frame_callback(self, callback):
-        with self._lock:
-            if callback not in self._frame_callbacks:
-                self._frame_callbacks.append(callback)
-    
-    def unregister_frame_callback(self, callback):
-        with self._lock:
-            if callback in self._frame_callbacks:
-                self._frame_callbacks.remove(callback)
-    
-    def start_capture(self, source=0):
-        with self._lock:
-            if self._running:
-                return False
-            
-            try:
-                self._cap = cv2.VideoCapture(source)
-                if not self._cap.isOpened():
-                    raise Exception(f"无法打开视频源: {source}")
-                
-                self._running = True
-                self._thread = threading.Thread(target=self._capture_loop, daemon=True)
-                self._thread.start()
-                return True
-            except Exception as e:
-                print(f"启动视频捕获失败: {str(e)}")
-                self._cap = None
-                self._running = False
-                return False
-    
-    def _capture_loop(self):
-        while self._running and self._cap:
-            try:
-                ret, frame = self._cap.read()
-                if ret:
-                    # 不要在这里裁剪画面，传递完整的帧给回调函数
-                    # ROI过滤应该在DetectionManager中进行
-                    
-                    # 调用所有注册的回调函数
-                    with self._lock:
-                        callbacks = self._frame_callbacks.copy()
-                    for callback in callbacks:
-                        try:
-                            callback(frame)
-                        except Exception as e:
-                            print(f"执行帧回调失败: {str(e)}")
-                else:
-                    # 如果无法读取帧，暂停一下
-                    time.sleep(0.1)
-            except Exception as e:
-                print(f"捕获帧失败: {str(e)}")
-                time.sleep(0.1)
-    
-    def stop_capture(self):
-        with self._lock:
-            if not self._running:
-                return
-            self._running = False
-        
-        # 等待线程结束
-        if self._thread and self._thread.is_alive():
-            self._thread.join(timeout=2.0)
-        
-        # 释放摄像头
-        if self._cap:
-            self._cap.release()
-            self._cap = None
-    
-    def is_running(self):
-        with self._lock:
-            return self._running
-    
-    def start(self, source=None):
-        if source is not None:
-            return self.start_capture(source)
-        return self.start_capture()
-    
-    def stop(self):
-        return self.stop_capture()
-    
-    def set_roi(self, roi):
-        with self._lock:
-            self._roi = roi
-    
-    def get_roi(self):
-        with self._lock:
-            return self._roi
-
-# 创建全局视频捕获器实例
-video_capturer = VideoCapturer()
-
-from ..signal_handler.signal_handler import signal_handler, SystemState
-from ..config.config_manager import config_manager
-from ..logger.log_manager import log_manager
-from ..object_detection.detection_manager import detection_manager
+# 导入模块
+from signal_handler.signal_handler import signal_handler, SystemState
+from config.config_manager import config_manager
+from logger.log_manager import log_manager
+from video_capture.video_capturer import video_capturer
+from object_detection.detection_manager import detection_manager
 
 class UIUpdater(QObject):
     """UI更新器，用于在主线程中更新UI"""
@@ -122,9 +29,13 @@ class UIUpdater(QObject):
 
 class MainWindow(QMainWindow):
     """主窗口类"""
+    # 添加报警信号用于线程安全的UI更新
+    alarm_signal = pyqtSignal(dict)
     
     def __init__(self):
         super().__init__()
+        # 连接信号到槽函数
+        self.alarm_signal.connect(self._safe_show_alarm_dialog)
         # 初始化ROI相关变量
         self.roi_enabled = True
         self.roi_coords = [300, 200, 900, 500]  # 默认ROI [x1, y1, x2, y2]
@@ -182,37 +93,28 @@ class MainWindow(QMainWindow):
         panel = QWidget()
         layout = QVBoxLayout(panel)
         
-        # 系统控制组
-        system_group = QGroupBox("系统控制")
-        system_layout = QVBoxLayout()
-        
-        self.start_button = QPushButton("启动检测")
-        self.stop_button = QPushButton("停止检测")
-        self.stop_button.setEnabled(False)
-        
-        system_layout.addWidget(self.start_button)
-        system_layout.addWidget(self.stop_button)
-        system_group.setLayout(system_layout)
-        
         # 摄像头控制组
         camera_group = QGroupBox("摄像头控制")
         camera_layout = QVBoxLayout()
         
-        self.start_camera_button = QPushButton("启动摄像头检测")
-        self.stop_camera_button = QPushButton("停止摄像头检测")
-        self.stop_camera_button.setEnabled(False)
+        self.camera_preview_button = QPushButton("开启摄像头预览")
+        self.camera_preview_button.setStyleSheet("background-color: #00BCD4; color: white; font-weight: bold;")
         
-        camera_layout.addWidget(self.start_camera_button)
-        camera_layout.addWidget(self.stop_camera_button)
+        camera_layout.addWidget(self.camera_preview_button)
         camera_group.setLayout(camera_layout)
         
-        # 信号模拟组
-        signal_group = QGroupBox("信号模拟")
+        # 信号控制组（作为唯一的控制方式，整合所有控制功能）
+        signal_group = QGroupBox("信号控制")
         signal_layout = QVBoxLayout()
         
         self.close_command_button = QPushButton("关门命令")
+        self.close_command_button.setStyleSheet("background-color: #4CAF50; color: white; font-weight: bold;")
+        
         self.closed_command_button = QPushButton("已关闭命令")
+        self.closed_command_button.setStyleSheet("background-color: #2196F3; color: white; font-weight: bold;")
+        
         self.reset_button = QPushButton("重置系统")
+        self.reset_button.setStyleSheet("background-color: #FF9800; color: white; font-weight: bold;")
         
         signal_layout.addWidget(self.close_command_button)
         signal_layout.addWidget(self.closed_command_button)
@@ -314,7 +216,6 @@ class MainWindow(QMainWindow):
         status_group.setLayout(status_layout)
         
         # 添加到主布局
-        layout.addWidget(system_group)
         layout.addWidget(camera_group)
         layout.addWidget(signal_group)
         layout.addWidget(roi_group)
@@ -346,14 +247,13 @@ class MainWindow(QMainWindow):
     
     def setup_connections(self):
         """设置信号连接"""
-        # 系统控制按钮
-        self.start_button.clicked.connect(self.start_detection)
-        self.stop_button.clicked.connect(self.stop_detection)
+        # 摄像头预览相关连接
+        self.camera_preview_button.clicked.connect(self.toggle_camera_preview)
         
-        # 信号模拟按钮
-        self.close_command_button.clicked.connect(lambda: signal_handler.simulate_signal('close_command'))
-        self.closed_command_button.clicked.connect(lambda: signal_handler.simulate_signal('closed_command'))
-        self.reset_button.clicked.connect(signal_handler.reset_to_idle)
+        # 信号控制按钮（作为唯一的控制方式）
+        self.close_command_button.clicked.connect(self.on_close_command)
+        self.closed_command_button.clicked.connect(self.on_closed_command)
+        self.reset_button.clicked.connect(self.on_reset_system)
         
         # 参数滑块
         self.confidence_slider.valueChanged.connect(lambda value: self.confidence_value.setText(f"{value}%"))
@@ -372,10 +272,6 @@ class MainWindow(QMainWindow):
         # 注册报警回调
         signal_handler.register_alarm_callback(self.on_alarm)
         
-        # 摄像头控制按钮连接
-        self.start_camera_button.clicked.connect(self.start_camera_detection)
-        self.stop_camera_button.clicked.connect(self.stop_camera_detection)
-        
         # 注册视频帧回调
         video_capturer.register_frame_callback(self.on_new_frame)
         
@@ -388,112 +284,299 @@ class MainWindow(QMainWindow):
         self.roi_edit_button.clicked.connect(self.toggle_roi_editing_mode)
     
     def start_detection(self):
-        """开始检测"""
+        """开始检测（内部方法，通过信号控制调用）"""
         self.statusBar().showMessage("开始检测...")
-        self.start_button.setEnabled(False)
-        self.stop_button.setEnabled(True)
         
-        # 首先启动视频捕获器
+        # 首先启动视频捕获器（如果还没启动）
         if not video_capturer.is_running():
             if not video_capturer.start_capture(0):  # 使用默认摄像头
-                QMessageBox.warning(self, "警告", "无法启动摄像头，请检查设备连接")
-                return
+                print("无法启动摄像头，请检查设备连接")
+                return False
         
-        # 启动视频显示定时器
-        self.video_timer.start(30)  # 约33fps
+        # 启动视频显示定时器（如果还没启动）
+        if not self.video_timer.isActive():
+            self.video_timer.start(30)  # 约33fps
         
         # 启动摄像头检测
         success = detection_manager.start_camera_detection()
         if success:
-            self.start_camera_button.setEnabled(False)
-            self.stop_camera_button.setEnabled(True)
-            QMessageBox.information(self, "提示", "检测功能已启动")
+            # 更新摄像头预览按钮状态，因为现在在检测模式
+            self.camera_preview_button.setText("关闭摄像头预览")
+            self.camera_preview_button.setStyleSheet("background-color: #F44336; color: white; font-weight: bold;")
+            return True
         else:
             # 如果检测进程启动失败，停止视频捕获
             self.video_timer.stop()
             video_capturer.stop_capture()
-            QMessageBox.warning(self, "警告", "摄像头检测启动失败")
+            return False
     
     def stop_detection(self):
-        """停止检测"""
+        """停止检测（内部方法，通过信号控制调用）"""
         self.statusBar().showMessage("停止检测...")
-        self.start_button.setEnabled(True)
-        self.stop_button.setEnabled(False)
         
-        # 停止视频显示和捕获
-        self.video_timer.stop()
-        video_capturer.stop_capture()
-        
-        # 停止摄像头检测
+        # 停止检测线程，但保持视频捕获和预览
         detection_manager.stop_camera_detection()
-        self.start_camera_button.setEnabled(True)
-        self.stop_camera_button.setEnabled(False)
-        QMessageBox.information(self, "提示", "检测功能已停止")
+        
+        # 更新状态信息
+        self.statusBar().showMessage("摄像头预览中（未检测）")
+        self.state_label.setText("当前状态: 摄像头预览中")
+        
+        # 确保摄像头预览按钮状态正确
+        if video_capturer.is_running():
+            self.camera_preview_button.setText("关闭摄像头预览")
+            self.camera_preview_button.setStyleSheet("background-color: #F44336; color: white; font-weight: bold;")
     
     def start_camera_detection(self):
-        """手动启动摄像头检测"""
-        # 首先启动视频捕获器
-        if not video_capturer.is_running():
-            if not video_capturer.start_capture(0):  # 使用默认摄像头
-                QMessageBox.warning(self, "警告", "无法启动摄像头，请检查设备连接")
-                return
+        """手动启动摄像头检测 - 现在通过信号控制统一管理"""
+        # 这个方法现在被信号控制机制取代，调用on_close_command实现统一的控制逻辑
+        self.on_close_command()
+    
+    def stop_camera_detection(self):
+        """手动停止摄像头检测 - 现在通过信号控制统一管理"""
+        # 这个方法现在被信号控制机制取代，调用on_reset_system实现统一的控制逻辑
+        self.on_reset_system()
+    
+    def on_close_command(self):
+        """处理关门命令按钮点击"""
+        signal_handler.simulate_signal('close_command')
+        self.statusBar().showMessage("收到关门命令，开始检测...")
+        
+    def on_closed_command(self):
+        """处理已关闭命令按钮点击"""
+        signal_handler.simulate_signal('closed_command')
+        self.statusBar().showMessage("收到已关闭信号，将在2秒后停止检测...")
+    
+    def toggle_camera_preview(self):
+        """切换摄像头预览状态"""
+        if video_capturer.is_running():
+            # 检查是否有检测线程在运行
+            if hasattr(detection_manager, '_detection_thread') and detection_manager._detection_thread.is_alive():
+                self.stop_detection()
+            # 停止摄像头预览
+            self.stop_camera_preview()
+        else:
+            # 启动摄像头预览
+            self.start_camera_preview()
+    
+    def start_camera_preview(self):
+        """启动摄像头预览（不进行检测）"""
+        # 确保不在检测状态
+        if hasattr(detection_manager, '_detection_thread') and detection_manager._detection_thread.is_alive():
+            self.stop_detection()
+        
+        # 启动视频捕获器
+        if not video_capturer.start_capture(0):  # 使用默认摄像头
+            QMessageBox.warning(self, "警告", "无法启动摄像头，请检查设备连接")
+            return False
         
         # 启动视频显示定时器
         self.video_timer.start(30)  # 约33fps
         
-        # 然后启动检测进程
-        success = detection_manager.start_camera_detection()
-        if success:
-            self.start_camera_button.setEnabled(False)
-            self.stop_camera_button.setEnabled(True)
-            self.statusBar().showMessage("摄像头检测已启动")
-            QMessageBox.information(self, "提示", "摄像头检测已启动")
-        else:
-            # 如果检测进程启动失败，停止视频捕获
-            self.video_timer.stop()
-            video_capturer.stop_capture()
-            QMessageBox.warning(self, "警告", "摄像头检测启动失败")
-    
-    def stop_camera_detection(self):
-        """手动停止摄像头检测"""
-        # 停止检测进程
-        detection_manager.stop_camera_detection()
+        # 更新按钮状态
+        self.camera_preview_button.setText("关闭摄像头预览")
+        self.camera_preview_button.setStyleSheet("background-color: #F44336; color: white; font-weight: bold;")
         
+        # 更新状态信息
+        self.statusBar().showMessage("摄像头预览已启动")
+        self.state_label.setText("当前状态: 摄像头预览中")
+        
+        return True
+    
+    def stop_camera_preview(self):
+        """停止摄像头预览"""
         # 停止视频显示和捕获
         self.video_timer.stop()
         video_capturer.stop_capture()
         
-        self.start_camera_button.setEnabled(True)
-        self.stop_camera_button.setEnabled(False)
-        self.statusBar().showMessage("摄像头检测已停止")
-        QMessageBox.information(self, "提示", "摄像头检测已停止")
+        # 更新按钮状态
+        self.camera_preview_button.setText("开启摄像头预览")
+        self.camera_preview_button.setStyleSheet("background-color: #00BCD4; color: white; font-weight: bold;")
+        
+        # 清除视频显示
+        self.video_label.setText("视频显示区域")
+        self.video_label.clear()  # 使用clear()方法代替setPixmap(None)
+        
+        # 更新状态信息
+        self.statusBar().showMessage("系统就绪")
+        self.state_label.setText("当前状态: 空闲")
+        
+        # 确保ROI编辑模式也被禁用
+        if self.roi_editing:
+            self.toggle_roi_editing_mode()
     
     def on_state_changed(self, old_state, new_state):
         """状态变化处理"""
         state_names = {
             SystemState.IDLE: "空闲",
-            SystemState.CLOSING: "关门中",
-            SystemState.CLOSED: "已关闭",
+            SystemState.CLOSING: "关门中（检测进行中）",
+            SystemState.CLOSED: "已关闭（延迟停止检测）",
             SystemState.ALARM: "报警"
         }
         
         self.state_label.setText(f"当前状态: {state_names.get(new_state, '未知')}")
-        self.statusBar().showMessage(f"系统状态: {state_names.get(new_state, '未知')}")
+        
+        # 更新状态栏消息
+        status_messages = {
+            SystemState.IDLE: "系统就绪",
+            SystemState.CLOSING: "关门中，正在进行异物检测",
+            SystemState.CLOSED: "已关闭，将在2秒后停止检测",
+            SystemState.ALARM: "检测到异物！请立即处理！"
+        }
+        
+        self.statusBar().showMessage(status_messages.get(new_state, "未知状态"))
+        
+        # 处理状态转换逻辑
+        if old_state == SystemState.IDLE and new_state == SystemState.CLOSING:
+            # 开始检测
+            self.start_detection()
+        elif new_state == SystemState.IDLE:
+            # 如果进入空闲状态，停止检测但保持摄像头开启状态（如果用户希望继续预览）
+            if hasattr(detection_manager, '_detection_thread') and detection_manager._detection_thread.is_alive():
+                detection_manager.stop_camera_detection()
+            # 不停止视频捕获，让用户可以继续预览和调整ROI
+        
+        # 处理从CLOSING到CLOSED的转换，设置定时器监控检测状态变化
+        if old_state == SystemState.CLOSING and new_state == SystemState.CLOSED:
+            # 设置一个定时器，定期检查检测状态是否已停止
+            def check_detection_status():
+                # 检查检测线程是否已停止
+                if hasattr(detection_manager, '_detection_thread'):
+                    if not detection_manager._detection_thread.is_alive():
+                        # 检测已停止，但保持摄像头预览
+                        self.state_label.setText("当前状态: 摄像头预览中（未检测）")
+                        self.statusBar().showMessage("检测已停止，保持摄像头预览")
+                        return
+                        
+                # 检查是否有camera_detection_running属性（在进程模式下）
+                if hasattr(detection_manager, 'camera_detection_running'):
+                    if not detection_manager.camera_detection_running:
+                        # 检测已停止，但保持摄像头预览
+                        self.state_label.setText("当前状态: 摄像头预览中（未检测）")
+                        self.statusBar().showMessage("检测已停止，保持摄像头预览")
+                        return
+                
+                # 如果检测仍在运行，500ms后再次检查
+                QTimer.singleShot(500, check_detection_status)
+            
+            # 开始定期检查
+            QTimer.singleShot(1000, check_detection_status)  # 从1秒后开始检查
     
     def on_alarm(self, alarm_info):
-        """报警处理"""
-        # 确保这是在主线程中运行
-        if threading.current_thread().name != 'MainThread':
-            # 对于复杂类型，使用定时器在主线程中执行
-            QTimer.singleShot(0, lambda: self.on_alarm(alarm_info))
-            return
+        """处理报警信息，使用信号槽机制确保线程安全"""
+        print(f"[调试] 进入on_alarm方法，线程: {threading.current_thread().name}")
+        print(f"[调试] 报警信息: {alarm_info}")
         
-        # 显示报警信息
-        message = f"检测到异物！\n类型: {alarm_info.get('type', '未知')}\n位置: {alarm_info.get('location', '未知')}"
+        # 发射信号到主线程
+        self.alarm_signal.emit(alarm_info)
+        
+    @pyqtSlot(dict)
+    def _safe_show_alarm_dialog(self, alarm_info):
+        """线程安全地显示报警对话框"""
+        print(f"[调试] 进入_safe_show_alarm_dialog方法，线程: {threading.current_thread().name}")
+        
+        # 设置状态栏消息
+        self.statusBar().showMessage("检测到异物！请立即处理！")
+        
+        # 导入必要的组件
+        from PyQt5.QtWidgets import QVBoxLayout, QLabel, QPushButton, QHBoxLayout, QGroupBox
+        from PyQt5.QtGui import QFont, QColor, QPalette
+        import datetime
+        
+        # 获取报警时间
+        current_time = alarm_info.get('timestamp', datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+        
+        # 创建自定义报警对话框
+        alarm_dialog = QDialog(self)
+        alarm_dialog.setWindowTitle("⚠️ 异物检测报警 ⚠️")
+        alarm_dialog.setFixedSize(450, 350)
+        alarm_dialog.setWindowModality(Qt.ApplicationModal)
+        
+        # 设置对话框背景颜色
+        palette = alarm_dialog.palette()
+        palette.setColor(QPalette.Window, QColor(255, 250, 240))  # 淡奶油色作为背景
+        alarm_dialog.setPalette(palette)
+        
+        # 设置布局
+        main_layout = QVBoxLayout(alarm_dialog)
+        main_layout.setSpacing(15)
+        main_layout.setContentsMargins(20, 20, 20, 20)
+        
+        # 添加标题
+        title_label = QLabel("⚠️ 检测到异物 ⚠️")
+        title_label.setFont(QFont("Arial", 18, QFont.Bold))
+        title_label.setAlignment(Qt.AlignCenter)
+        title_label.setStyleSheet("color: #E53935; background-color: #FFEBEE; padding: 8px; border-radius: 5px;")
+        main_layout.addWidget(title_label)
+        
+        # 创建信息分组框
+        info_group = QGroupBox("报警详细信息")
+        info_group.setFont(QFont("Arial", 11, QFont.Bold))
+        info_layout = QVBoxLayout(info_group)
+        info_layout.setSpacing(10)
+        
+        # 报警信息 - 兼容不同的字段名格式
+        time_label = QLabel(f"<b>报警时间：</b>{current_time}")
+        position = alarm_info.get('position', alarm_info.get('location', '未知'))
+        object_type = alarm_info.get('object_type', alarm_info.get('type', '未知'))
+        detail = alarm_info.get('detail', '')
+        
+        position_label = QLabel(f"<b>位置：</b>{position}")
+        object_label = QLabel(f"<b>异物种类：</b>{object_type}")
+        
+        # 设置字体大小和对齐方式
+        font = QFont("Arial", 10)
+        time_label.setFont(font)
+        position_label.setFont(font)
+        object_label.setFont(font)
+        
+        time_label.setAlignment(Qt.AlignLeft)
+        position_label.setAlignment(Qt.AlignLeft)
+        object_label.setAlignment(Qt.AlignLeft)
+        
+        # 添加到信息布局
+        info_layout.addWidget(time_label)
+        info_layout.addWidget(position_label)
+        info_layout.addWidget(object_label)
+        
+        # 如果有详细信息，也显示出来
+        if detail:
+            detail_label = QLabel(f"<b>详细信息：</b>{detail}")
+            detail_label.setFont(font)
+            detail_label.setAlignment(Qt.AlignLeft)
+            info_layout.addWidget(detail_label)
+        
+        # 添加信息分组框到主布局
+        main_layout.addWidget(info_group)
+        
+        # 添加提示信息
+        warning_label = QLabel("🚨 请立即检查屏蔽门间隙，确保安全！ 🚨")
+        warning_label.setAlignment(Qt.AlignCenter)
+        warning_label.setStyleSheet("color: #E53935; font-size: 12px; font-weight: bold; background-color: #FFEBEE; padding: 10px; border-radius: 5px;")
+        main_layout.addWidget(warning_label)
+        
+        # 添加确认按钮布局
+        button_layout = QHBoxLayout()
+        confirm_button = QPushButton("确认")
+        confirm_button.setFont(QFont("Arial", 12, QFont.Bold))
+        confirm_button.setStyleSheet("background-color: #4CAF50; color: white; padding: 10px 20px; border-radius: 5px;")
+        confirm_button.setMinimumWidth(100)
+        confirm_button.clicked.connect(alarm_dialog.accept)
+        
+        # 添加空间让按钮居中
+        button_layout.addStretch(1)
+        button_layout.addWidget(confirm_button)
+        button_layout.addStretch(1)
+        
+        main_layout.addLayout(button_layout)
+        
+        # 显示对话框
+        print(f"[调试] 显示报警对话框")
+        alarm_dialog.exec_()
+        print(f"[调试] 对话框已关闭")
+        
+        # 同时更新结果文本
+        message = f"检测到异物！\n时间: {current_time}\n位置: {position}\n种类: {object_type}\n{detail}"
         self.result_text.append(message)
-        
-        # 弹出报警对话框
-        QMessageBox.warning(self, "报警", message)
     
     def on_detection_result(self, result):
         """处理检测结果（可能在检测线程中被调用）"""
@@ -550,19 +633,41 @@ class MainWindow(QMainWindow):
             event.accept()
         else:
             event.ignore()
+            
+    def on_reset_system(self):
+        """重置系统到空闲状态"""
+        # 停止检测
+        self.stop_detection()
+        # 通过信号处理器重置状态
+        signal_handler.reset_to_idle()
+        # 更新UI显示
+        self.state_label.setText("当前状态: 空闲")
+        self.statusBar().showMessage("系统已重置")
     
     def on_new_frame(self, frame):
         """处理新的视频帧，将其发送给检测模块进行处理"""
         # 保存帧到缓存
         self.last_frame = frame
         
-        # 直接调用处理函数，让检测模块在自己的线程中处理
-        # 避免每次创建新线程导致的资源浪费和潜在问题
-        try:
-            # 将帧复制后传入检测管理器
-            detection_manager.detect_frame(frame.copy())
-        except Exception as e:
-            print(f"帧处理发送失败: {str(e)}")
+        # 检查是否在实际检测模式下：
+        # 1. 首先检查是否有活跃的检测线程
+        # 2. 如果没有，检查是否有camera_detection_running属性（进程模式）
+        is_detection_active = False
+        
+        # 线程模式检查
+        if hasattr(detection_manager, '_detection_thread') and detection_manager._detection_thread.is_alive():
+            is_detection_active = True
+        # 进程模式检查
+        elif hasattr(detection_manager, 'camera_detection_running') and detection_manager.camera_detection_running:
+            is_detection_active = True
+        
+        # 如果检测处于活跃状态，才发送帧进行处理
+        if is_detection_active:
+            try:
+                # 将帧复制后传入检测管理器
+                detection_manager.detect_frame(frame.copy())
+            except Exception as e:
+                print(f"帧处理发送失败: {str(e)}")
     
     # 移除_process_frame_for_detection方法，避免线程创建问题
     
@@ -676,9 +781,13 @@ class MainWindow(QMainWindow):
     
     def toggle_roi_editing_mode(self):
         """切换ROI编辑模式"""
+        # 检查摄像头是否运行
         if not video_capturer.is_running():
-            QMessageBox.warning(self, "警告", "请先启动摄像头再进入ROI编辑模式")
-            return
+            # 如果摄像头没有运行，尝试启动预览
+            if not self.start_camera_preview():
+                # 如果启动失败，显示警告
+                QMessageBox.warning(self, "警告", "请先启动摄像头再进入ROI编辑模式")
+                return
             
         if self.roi_editing:
             # 退出编辑模式

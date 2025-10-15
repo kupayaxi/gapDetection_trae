@@ -14,9 +14,76 @@ import traceback  # 添加traceback模块用于详细的错误追踪
 # 添加YOLOv5项目根目录到Python路径
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
-from ..config.config_manager import config_manager
-from ..logger.log_manager import log_manager
-from ..signal_handler.signal_handler import signal_handler, SystemState
+# 导入配置管理器，使用尝试不同的导入路径
+try:
+    from config.config_manager import config_manager
+except ImportError:
+    try:
+        from src.config.config_manager import config_manager
+    except ImportError:
+        print("警告：无法导入config_manager，使用默认配置")
+        class DefaultConfigManager:
+            def get(self, key, default=None):
+                return default
+        config_manager = DefaultConfigManager()
+
+# 导入日志管理器
+try:
+    from logger.log_manager import log_manager
+except ImportError:
+    try:
+        from src.logger.log_manager import log_manager
+    except ImportError:
+        print("警告：无法导入log_manager，使用简单的打印替代")
+        class SimpleLogger:
+            def log_error(self, msg):
+                print(f"错误: {msg}")
+            def log_system_event(self, event_type, details):
+                print(f"{event_type}: {details}")
+            def log_detection(self, detection_result, signal_state):
+                pass
+        log_manager = SimpleLogger()
+
+# 导入信号处理器
+try:
+    from signal_handler.signal_handler import signal_handler, SystemState
+except ImportError:
+    try:
+        from src.signal_handler.signal_handler import signal_handler, SystemState
+    except ImportError:
+        print("警告：无法导入signal_handler，定义简单的SystemState枚举")
+        from enum import Enum
+        class SystemState(Enum):
+            IDLE = 0
+            DOOR_CLOSING = 1
+            DETECTING = 2
+            DOOR_CLOSED = 3
+            CLOSING = 1  # 兼容其他模块使用的CLOSING状态
+            ALARM = 4    # 添加报警状态
+        
+        class SimpleSignalHandler:
+            def __init__(self):
+                self.current_state = SystemState.IDLE
+                self._alarm_callbacks = []
+            
+            def register_alarm_callback(self, callback):
+                if callback not in self._alarm_callbacks:
+                    self._alarm_callbacks.append(callback)
+            
+            def trigger_alarm(self, alarm_info):
+                print(f"报警触发（SimpleSignalHandler）: {alarm_info}")
+                for callback in self._alarm_callbacks:
+                    try:
+                        callback(alarm_info)
+                    except Exception as e:
+                        print(f"报警回调执行失败: {e}")
+                        
+            def get_current_state(self):
+                return self.current_state
+                
+            def set_state(self, state):
+                self.current_state = state
+        signal_handler = SimpleSignalHandler()
 
 
 class DetectionManager:
@@ -27,7 +94,20 @@ class DetectionManager:
         # 模型相关参数
         self.model = None
         # 如果提供了weights_path参数则使用，否则从配置中读取
+        # 解析模型路径为绝对路径
         self.weights_path = weights_path if weights_path else config_manager.get("detection.weights", "yolov5s.pt")
+        
+        # 检查本地模型文件，优先使用项目根目录和src目录下的模型
+        possible_paths = [
+            self.weights_path,
+            os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), self.weights_path),
+            os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), self.weights_path)
+        ]
+        
+        for path in possible_paths:
+            if os.path.exists(path):
+                self.weights_path = os.path.abspath(path)
+                break
         self.confidence_threshold = config_manager.get("detection.confidence_threshold", 0.4)
         self.iou_threshold = config_manager.get("detection.iou_threshold", 0.45)
         self.max_det = config_manager.get("detection.max_det", 1000)
@@ -180,6 +260,7 @@ class DetectionManager:
                 self.python_exe,
                 detect_script_path,
                 "--source", "0",  # 使用默认摄像头
+                "--weights", self.weights_path,
                 "--conf-thres", str(self.confidence_threshold),
                 "--iou-thres", str(self.iou_threshold),
                 "--view-img"  # 显示检测结果窗口
@@ -403,20 +484,104 @@ class DetectionManager:
                 except Exception as e:
                     log_manager.log_error(f"检测回调执行失败: {e}")
             
-            # 如果检测到物体且当前状态为关门中，则触发报警
+            # 检查是否检测到物体并且在ROI内
             try:
                 if detection_result['objects'] and signal_handler and hasattr(signal_handler, 'get_current_state'):
                     current_state = signal_handler.get_current_state()
-                    if current_state == SystemState.CLOSING:
-                        alarm_info = {
-                            "alarm_type": "异物检测",
-                            "objects": detection_result['objects'],
-                            "timestamp": log_manager.get_current_timestamp() if hasattr(log_manager, 'get_current_timestamp') else None
-                        }
+                    
+                    # 只在关门中和已关闭状态下进行检测（已关闭状态会在2秒后由signal_handler自动停止）
+                    if current_state in [SystemState.CLOSING, SystemState.CLOSED]:
+                        # 筛选出ROI内的物体
+                        roi_objects = []
+                        if self.roi:
+                            roi_x1, roi_y1, roi_x2, roi_y2 = self.roi
+                            for obj in detection_result['objects']:
+                                # 检查物体是否在ROI内或与ROI相交
+                                obj_x1, obj_y1, obj_x2, obj_y2 = obj['x1'], obj['y1'], obj['x2'], obj['y2']
+                                
+                                # 计算物体中心
+                                obj_center_x = (obj_x1 + obj_x2) // 2
+                                obj_center_y = (obj_y1 + obj_y2) // 2
+                                
+                                # 检查物体中心是否在ROI内，或者物体与ROI相交
+                                if (roi_x1 <= obj_center_x <= roi_x2 and roi_y1 <= obj_center_y <= roi_y2) or \
+                                   not (obj_x2 < roi_x1 or obj_x1 > roi_x2 or obj_y2 < roi_y1 or obj_y1 > roi_y2):
+                                    roi_objects.append(obj)
+                        else:
+                            # 没有设置ROI时，所有物体都有效
+                            roi_objects = detection_result['objects']
+                        
+                        # 只有当ROI内有物体时才触发报警
+                        if roi_objects:
+                            # 整合检测到的物体信息
+                            detected_objects_info = []
+                            primary_object = None
+                            
+                            # 优先显示人员或最可能造成危险的物体
+                            for obj in roi_objects:
+                                obj_info = {
+                                    "type": obj['class_name'],
+                                    "confidence": obj['confidence'],
+                                    "position": f"({obj['x1']}, {obj['y1']})-({obj['x2']}, {obj['y2']})"
+                                }
+                                detected_objects_info.append(obj_info)
+                                
+                                # 优先选择人员作为主要物体，其次是其他高风险物体
+                                if primary_object is None:
+                                    if obj['class_id'] == 0:  # person
+                                        primary_object = obj
+                                    elif 'special_note' in obj:
+                                        primary_object = obj
+                                    else:
+                                        primary_object = obj
+                            
+                            # 格式化位置信息 - 使用ROI中心作为位置标识
+                            roi_center_x = (self.roi[0] + self.roi[2]) // 2 if self.roi else 0
+                            roi_center_y = (self.roi[1] + self.roi[3]) // 2 if self.roi else 0
+                            
+                            # 构建位置描述（根据ROI坐标）
+                            if self.roi:
+                                roi_x1, roi_y1, roi_x2, roi_y2 = self.roi
+                                position = f"屏蔽门间隙区域 [X:{roi_x1}-{roi_x2}, Y:{roi_y1}-{roi_y2}] (中心点: {roi_center_x}, {roi_center_y})"
+                            else:
+                                position = "全画面"
+                            
+                            # 获取主要物体的类型
+                            object_type = primary_object['class_name'] if primary_object else "未知物体"
+                            # 添加特殊标记
+                            if primary_object and 'special_note' in primary_object:
+                                object_type += f" ({primary_object['special_note']})"
+                            
+                            # 统计各类物体数量
+                            type_counts = {}
+                            for obj in roi_objects:
+                                type_name = obj['class_name']
+                                if 'special_note' in obj:
+                                    type_name += f" ({obj['special_note']})"
+                                type_counts[type_name] = type_counts.get(type_name, 0) + 1
+                            
+                            # 构建更详细的异物种类描述
+                            detailed_object_types = "、".join([f"{t}({count}个)" for t, count in type_counts.items()])
+                            
+                            # 构建符合UI需求的报警信息格式
+                            alarm_info = {
+                                "alarm_type": "异物检测",
+                                "position": position,  # 使用位置字段名
+                                "object_type": detailed_object_types,  # 使用详细异物种类字段名
+                                "timestamp": time.strftime("%Y-%m-%d %H:%M:%S"),  # 直接生成时间戳
+                                "objects": detected_objects_info,  # 详细物体信息
+                                "detail": f"检测到{len(roi_objects)}个物体",
+                                # 兼容旧格式
+                                "location": position,
+                                "type": detailed_object_types
+                            }
+                        
                         if hasattr(signal_handler, 'trigger_alarm'):
                             signal_handler.trigger_alarm(alarm_info)
+                            log_manager.log_system_event("报警触发", f"检测到异物并触发报警: {object_type} 在 {position}")
             except Exception as alarm_error:
                 log_manager.log_error(f"触发报警失败: {str(alarm_error)}")
+                log_manager.log_error(traceback.format_exc())
             
             return detection_result
         
@@ -549,6 +714,11 @@ class DetectionManager:
         for obj in detection_result['objects']:
             obj_x1, obj_y1, obj_x2, obj_y2 = obj['x1'], obj['y1'], obj['x2'], obj['y2']
             
+            # 对于地铁屏蔽门间隙检测场景，使用更严格的ROI判断逻辑
+            # 检查物体中心点是否在ROI内或物体大部分在ROI内
+            obj_center_x = (obj_x1 + obj_x2) / 2
+            obj_center_y = (obj_y1 + obj_y2) / 2
+            
             # 计算物体与ROI的交集
             intersect_x1 = max(obj_x1, roi_x1)
             intersect_y1 = max(obj_y1, roi_y1)
@@ -562,10 +732,21 @@ class DetectionManager:
                 intersect_area = (intersect_x2 - intersect_x1) * (intersect_y2 - intersect_y1)
                 overlap_ratio = intersect_area / obj_area
                 
-                # 如果重叠比例大于阈值，则保留该物体
-                if overlap_ratio > 0.3:  # 可以调整此阈值
-                    filtered_objects.append(obj)
+                # 对于地铁屏蔽门场景，我们对人员和小物体采用不同的判断标准
+                # 人员（class_id=0）和小物体需要更严格的检测，只要部分在ROI内就保留
+                if obj['class_id'] == 0 or obj['area'] < self.small_object_area_threshold:
+                    # 人员或小物体，重叠比例>0.2就保留
+                    if overlap_ratio > 0.2:
+                        # 记录物体在ROI中的位置信息
+                        obj['roi_position'] = f"中心点({int(obj_center_x)}, {int(obj_center_y)})"
+                        filtered_objects.append(obj)
+                else:
+                    # 其他物体，重叠比例>0.5才保留
+                    if overlap_ratio > 0.5:
+                        obj['roi_position'] = f"中心点({int(obj_center_x)}, {int(obj_center_y)})"
+                        filtered_objects.append(obj)
         
+        log_manager.log_system_event("ROI筛选", f"原始检测到{len(detection_result['objects'])}个物体，ROI内保留{len(filtered_objects)}个物体")
         return {"objects": filtered_objects}
     
     def set_enable_frame_validation(self, enable):

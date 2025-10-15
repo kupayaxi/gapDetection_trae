@@ -1,0 +1,33 @@
+时间戳,事件类型,详细信息
+2025-10-15 09:47:50,错误,加载模型失败: [Errno 2] No such file or directory: 'yolov5s.pt'
+2025-10-15 09:47:50,错误,"Traceback (most recent call last):
+  File ""E:\kaifa\gapDetection_trae\src\object_detection\detection_manager.py"", line 183, in load_model
+    self.weights_path = found_model_path
+  File ""E:\kaifa\gapDetection_trae\models\experimental.py"", line 101, in attempt_load
+    ckpt = torch_load(attempt_download(w), map_location=""cpu"")  # load
+  File ""E:\kaifa\gapDetection_trae\models\experimental.py"", line 11, in torch_load
+    return torch.load(file_path, map_location=map_location, **kwargs)
+  File ""D:\AppInstall\pythonPyTorch+yolo\anaconda\install\lib\site-packages\torch\serialization.py"", line 579, in load
+    with _open_file_like(f, 'rb') as opened_file:
+  File ""D:\AppInstall\pythonPyTorch+yolo\anaconda\install\lib\site-packages\torch\serialization.py"", line 230, in _open_file_like
+    return _open_file(name_or_buffer, mode)
+  File ""D:\AppInstall\pythonPyTorch+yolo\anaconda\install\lib\site-packages\torch\serialization.py"", line 211, in __init__
+    super(_open_file, self).__init__(open(name, mode))
+FileNotFoundError: [Errno 2] No such file or directory: 'yolov5s.pt'
+"
+2025-10-15 10:01:56,错误,加载模型失败: [Errno 2] No such file or directory: 'yolov5s.pt'
+2025-10-15 10:01:56,错误,"Traceback (most recent call last):
+  File ""E:\kaifa\gapDetection_trae\src\object_detection\detection_manager.py"", line 204, in load_model
+    self.model = attempt_load(self.weights_path, device=self.device)
+  File ""E:\kaifa\gapDetection_trae\models\experimental.py"", line 101, in attempt_load
+    ckpt = torch_load(attempt_download(w), map_location=""cpu"")  # load
+  File ""E:\kaifa\gapDetection_trae\models\experimental.py"", line 11, in torch_load
+    return torch.load(file_path, map_location=map_location, **kwargs)
+  File ""D:\AppInstall\pythonPyTorch+yolo\anaconda\install\lib\site-packages\torch\serialization.py"", line 579, in load
+    with _open_file_like(f, 'rb') as opened_file:
+  File ""D:\AppInstall\pythonPyTorch+yolo\anaconda\install\lib\site-packages\torch\serialization.py"", line 230, in _open_file_like
+    return _open_file(name_or_buffer, mode)
+  File ""D:\AppInstall\pythonPyTorch+yolo\anaconda\install\lib\site-packages\torch\serialization.py"", line 211, in __init__
+    super(_open_file, self).__init__(open(name, mode))
+FileNotFoundError: [Errno 2] No such file or directory: 'yolov5s.pt'
+"

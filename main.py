@@ -53,9 +53,9 @@ def main():
         from src.signal_handler.signal_handler import signal_handler, SystemState
         logger.info("signal_handler 导入成功")
         
-        # 临时跳过video_capturer导入，先测试其他模块
-        # from src.video_capture.video_capturer import video_capturer
-        # logger.info("video_capturer 导入成功")
+        # 导入视频捕获器
+        from src.video_capture.video_capturer import video_capturer
+        logger.info("video_capturer 导入成功")
         
         # 导入检测管理器
         from src.object_detection.detection_manager import detection_manager
@@ -72,12 +72,34 @@ def main():
             
             # 当系统进入关门状态时，启动摄像头检测
             if new_state == SystemState.CLOSING:
-                log_manager.log_system_event("检测控制", "开始摄像头实时检测")
+                log_manager.log_system_event("检测控制", "收到关门命令，开始摄像头实时检测")
+                # 启动视频捕获器（如果尚未启动）
+                if not video_capturer.is_running():
+                    video_capturer.start_capture(0)  # 使用默认摄像头
+                # 启动摄像头检测
                 detection_manager.start_camera_detection()
-            # 当系统离开关门状态时，停止摄像头检测
-            elif old_state == SystemState.CLOSING and new_state != SystemState.CLOSING:
-                log_manager.log_system_event("检测控制", "停止摄像头实时检测")
-                detection_manager.stop_camera_detection()
+            # 当系统从关门状态切换到已关闭状态时，延迟2秒后停止检测
+            elif old_state == SystemState.CLOSING and new_state == SystemState.CLOSED:
+                log_manager.log_system_event("检测控制", "收到已关闭信号，将在2秒后停止检测")
+                
+                def delayed_stop_detection():
+                    """延迟停止检测的线程函数"""
+                    time.sleep(2)
+                    log_manager.log_system_event("检测控制", "延迟时间到，停止摄像头实时检测")
+                    detection_manager.stop_camera_detection()
+                    if video_capturer.is_running():
+                        video_capturer.stop_capture()
+                
+                # 创建并启动延迟停止线程
+                stop_thread = threading.Thread(target=delayed_stop_detection, daemon=True)
+                stop_thread.start()
+            # 其他情况下的处理
+            elif new_state == SystemState.IDLE:
+                # 确保检测已停止
+                if detection_manager.camera_detection_running:
+                    detection_manager.stop_camera_detection()
+                if video_capturer.is_running():
+                    video_capturer.stop_capture()
         
         # 注册状态变化回调
         signal_handler.register_state_change_callback(state_change_callback)
