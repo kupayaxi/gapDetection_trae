@@ -4,6 +4,7 @@ import threading
 import signal
 import os
 import traceback
+import time
 
 # 配置根日志记录器
 logging.basicConfig(
@@ -87,8 +88,9 @@ def main():
                     time.sleep(2)
                     log_manager.log_system_event("检测控制", "延迟时间到，停止摄像头实时检测")
                     detection_manager.stop_camera_detection()
-                    if video_capturer.is_running():
-                        video_capturer.stop_capture()
+                    # 不再停止视频捕获，保持摄像头预览功能
+                    # if video_capturer.is_running():
+                    #     video_capturer.stop_capture()
                 
                 # 创建并启动延迟停止线程
                 stop_thread = threading.Thread(target=delayed_stop_detection, daemon=True)

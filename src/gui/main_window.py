@@ -38,7 +38,8 @@ class MainWindow(QMainWindow):
         self.alarm_signal.connect(self._safe_show_alarm_dialog)
         # 初始化ROI相关变量
         self.roi_enabled = True
-        self.roi_coords = [300, 200, 900, 500]  # 默认ROI [x1, y1, x2, y2]
+        # 默认ROI坐标，确保完全在画面内部(默认1280x720)
+        self.roi_coords = [50, 50, 600, 125]  # 默认ROI [x1, y1, x2, y2]，位于画面中央
         self.roi_editing = False
         self.roi_dragging = False
         self.drag_handle = None  # 1:左上, 2:右上, 3:左下, 4:右下, 5:中间
@@ -133,28 +134,28 @@ class MainWindow(QMainWindow):
         # ROI坐标输入
         roi_layout.addWidget(QLabel("X1:"), 1, 0)
         self.roi_x1_input = QComboBox()
-        for i in range(0, 1280, 50):
+        for i in range(0, 1280, 25):
             self.roi_x1_input.addItem(str(i))
         self.roi_x1_input.setCurrentText(str(self.roi_coords[0]))
         roi_layout.addWidget(self.roi_x1_input, 1, 1)
         
         roi_layout.addWidget(QLabel("Y1:"), 1, 2)
         self.roi_y1_input = QComboBox()
-        for i in range(0, 720, 50):
+        for i in range(0, 720, 25):
             self.roi_y1_input.addItem(str(i))
         self.roi_y1_input.setCurrentText(str(self.roi_coords[1]))
         roi_layout.addWidget(self.roi_y1_input, 1, 3)
         
         roi_layout.addWidget(QLabel("X2:"), 2, 0)
         self.roi_x2_input = QComboBox()
-        for i in range(0, 1280, 50):
+        for i in range(0, 1280, 25):
             self.roi_x2_input.addItem(str(i))
         self.roi_x2_input.setCurrentText(str(self.roi_coords[2]))
         roi_layout.addWidget(self.roi_x2_input, 2, 1)
         
         roi_layout.addWidget(QLabel("Y2:"), 2, 2)
         self.roi_y2_input = QComboBox()
-        for i in range(0, 720, 50):
+        for i in range(0, 720, 25):
             self.roi_y2_input.addItem(str(i))
         self.roi_y2_input.setCurrentText(str(self.roi_coords[3]))
         roi_layout.addWidget(self.roi_y2_input, 2, 3)
@@ -488,7 +489,8 @@ class MainWindow(QMainWindow):
         # 创建自定义报警对话框
         alarm_dialog = QDialog(self)
         alarm_dialog.setWindowTitle("⚠️ 异物检测报警 ⚠️")
-        alarm_dialog.setFixedSize(450, 350)
+        # 增加对话框尺寸以确保文字完整显示
+        alarm_dialog.setFixedSize(550, 400)
         alarm_dialog.setWindowModality(Qt.ApplicationModal)
         
         # 设置对话框背景颜色
@@ -529,9 +531,13 @@ class MainWindow(QMainWindow):
         position_label.setFont(font)
         object_label.setFont(font)
         
+        # 设置标签样式，允许自动换行
         time_label.setAlignment(Qt.AlignLeft)
         position_label.setAlignment(Qt.AlignLeft)
         object_label.setAlignment(Qt.AlignLeft)
+        time_label.setWordWrap(True)
+        position_label.setWordWrap(True)
+        object_label.setWordWrap(True)
         
         # 添加到信息布局
         info_layout.addWidget(time_label)
@@ -543,15 +549,17 @@ class MainWindow(QMainWindow):
             detail_label = QLabel(f"<b>详细信息：</b>{detail}")
             detail_label.setFont(font)
             detail_label.setAlignment(Qt.AlignLeft)
+            detail_label.setWordWrap(True)  # 允许详细信息自动换行
             info_layout.addWidget(detail_label)
         
         # 添加信息分组框到主布局
         main_layout.addWidget(info_group)
         
-        # 添加提示信息
+        # 添加提示信息，增加字间距和允许换行
         warning_label = QLabel("🚨 请立即检查屏蔽门间隙，确保安全！ 🚨")
         warning_label.setAlignment(Qt.AlignCenter)
-        warning_label.setStyleSheet("color: #E53935; font-size: 12px; font-weight: bold; background-color: #FFEBEE; padding: 10px; border-radius: 5px;")
+        warning_label.setWordWrap(True)  # 允许警告文本自动换行
+        warning_label.setStyleSheet("color: #E53935; font-size: 12px; font-weight: bold; background-color: #FFEBEE; padding: 10px; border-radius: 5px; letter-spacing: 0.5px;")
         main_layout.addWidget(warning_label)
         
         # 添加确认按钮布局
@@ -559,7 +567,7 @@ class MainWindow(QMainWindow):
         confirm_button = QPushButton("确认")
         confirm_button.setFont(QFont("Arial", 12, QFont.Bold))
         confirm_button.setStyleSheet("background-color: #4CAF50; color: white; padding: 10px 20px; border-radius: 5px;")
-        confirm_button.setMinimumWidth(100)
+        confirm_button.setMinimumWidth(120)  # 增加按钮宽度
         confirm_button.clicked.connect(alarm_dialog.accept)
         
         # 添加空间让按钮居中
@@ -748,18 +756,37 @@ class MainWindow(QMainWindow):
         """应用ROI设置"""
         try:
             # 从输入框获取坐标
-            x1 = int(self.roi_x1_input.currentText())
-            y1 = int(self.roi_y1_input.currentText())
-            x2 = int(self.roi_x2_input.currentText())
-            y2 = int(self.roi_y2_input.currentText())
+            input_x1 = int(self.roi_x1_input.currentText())
+            input_y1 = int(self.roi_y1_input.currentText())
+            input_x2 = int(self.roi_x2_input.currentText())
+            input_y2 = int(self.roi_y2_input.currentText())
             
-            # 确保坐标有效
-            if x1 >= x2 or y1 >= y2:
+            # 确保坐标有效且完全在画面内部
+            img_width, img_height = 1280, 720  # 假设默认分辨率
+            
+            # 先检查坐标顺序是否正确
+            if input_x1 >= input_x2 or input_y1 >= input_y2:
                 QMessageBox.warning(self, "警告", "ROI坐标无效，请确保X1<X2且Y1<Y2")
                 return
             
+            # 强制将坐标限制在画面内部，无论用户输入什么值
+            x1 = max(0, min(input_x1, img_width - 25))  # 确保有最小宽度
+            y1 = max(0, min(input_y1, img_height - 25))  # 确保有最小高度
+            x2 = max(x1 + 25, min(input_x2, img_width))  # 确保有最小宽度且不超出边界
+            y2 = max(y1 + 25, min(input_y2, img_height))  # 确保有最小高度且不超出边界
+            
+            # 如果输入的坐标被调整了，显示提示并更新输入框
+            if (input_x1 != x1 or input_y1 != y1 or input_x2 != x2 or input_y2 != y2):
+                # 只在真正被调整时更新输入框，避免不必要的循环调用
+                self.roi_x1_input.setCurrentText(str(x1))
+                self.roi_y1_input.setCurrentText(str(y1))
+                self.roi_x2_input.setCurrentText(str(x2))
+                self.roi_y2_input.setCurrentText(str(y2))
+            
             # 更新ROI坐标（使用[x1, y1, x2, y2]格式）
             self.roi_coords = [x1, y1, x2, y2]
+            # 更新ROI起始坐标，确保拖拽功能正常工作
+            self.roi_start_coords = self.roi_coords.copy()
             
             # 保存到配置管理器
             config_manager.set("detection.roi", self.roi_coords if self.roi_enabled else None)
@@ -936,10 +963,26 @@ class MainWindow(QMainWindow):
             self.roi_dragging = False
             self.drag_handle = None
             
-            # 更新输入框中的值
+            # 确保ROI完全在画面内部
+            img_width, img_height = 1280, 720  # 假设默认分辨率
             x1, y1, x2, y2 = self.roi_coords
             
-            # 找到最接近的选项
+            # 调整坐标到画面内部
+            x1 = max(0, x1)
+            y1 = max(0, y1)
+            x2 = min(img_width, x2)
+            y2 = min(img_height, y2)
+            
+            # 确保调整后的坐标仍然有效
+            if x1 >= x2:
+                x2 = x1 + 25
+            if y1 >= y2:
+                y2 = y1 + 25
+            
+            # 更新输入框中的值
+            self.roi_coords = [x1, y1, x2, y2]
+            
+            # 找到最接近的选项（步长25）
             def find_nearest_option(combo, value):
                 options = [int(combo.itemText(i)) for i in range(combo.count())]
                 nearest = min(options, key=lambda x: abs(x - value))
