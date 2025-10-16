@@ -24,10 +24,8 @@ from torch.cuda import amp
 
 # 不使用ultralytics，直接使用PyTorch和YOLOv5原生代码
 # 移除对ultralytics的依赖，避免安装问题
-
 from utils import TryExcept
 from utils.dataloaders import exif_transpose, letterbox
-from utils.plots import Annotator, colors, save_one_box
 from utils.general import (
     LOGGER,
     ROOT,
@@ -45,6 +43,7 @@ from utils.general import (
     xyxy2xywh,
     yaml_load,
 )
+from utils.plots import Annotator, colors, save_one_box
 from utils.torch_utils import copy_attr, smart_inference_mode
 
 

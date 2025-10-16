@@ -10,9 +10,10 @@ Usage:
     model = torch.hub.load('.', 'custom', 'yolov5s.pt', source='local')  # local repo
 """
 
+
 # 使用PyTorch标准的torch.load函数，移除对ultralytics的依赖
 def torch_load(file_path, map_location=None, **kwargs):
-    """替代ultralytics.utils.patches.torch_load的函数"""
+    """替代ultralytics.utils.patches.torch_load的函数."""
     return torch.load(file_path, map_location=map_location, **kwargs)
 
 
@@ -37,7 +38,7 @@ def _create(name, pretrained=True, channels=3, classes=80, autoshape=True, verbo
         ```python
         import torch
         # 不使用ultralytics，使用本地实现
-# from ultralytics import _create
+    # from ultralytics import _create
 
         # Load an official YOLOv5s model with pretrained weights
         model = _create('yolov5s')
@@ -166,7 +167,7 @@ def yolov5n(pretrained=True, channels=3, classes=80, autoshape=True, _verbose=Tr
         ```python
         import torch
         # 不使用ultralytics，使用本地实现
-# from ultralytics import yolov5n
+    # from ultralytics import yolov5n
 
         # Load the YOLOv5-nano model with defaults
         model = yolov5n()
