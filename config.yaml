@@ -3,7 +3,7 @@ detection:
   augment: false
   confidence_threshold: 0.47
   enable_small_object_detection: true
-  frame_validation_count: 5
+  frame_validation_count: 4
   iou_threshold: 0.45
   max_det: 1000
   relevant_classes:
@@ -21,9 +21,9 @@ detection:
   - 50
   - 50
   - 600
-  - 300
+  - 175
   small_object_area_threshold: 2500
-  weights: yolov5m.pt
+  weights: yolov5s.pt
 log:
   backup_count: 5
   file_path: logs/detection_log.csv

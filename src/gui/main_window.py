@@ -14,7 +14,7 @@ from PyQt5.QtWidgets import (
 )
 from PyQt5.QtCore import Qt, QTimer, pyqtSignal, QThread, QObject, pyqtSlot
 import threading
-from PyQt5.QtGui import QImage, QPixmap, QFont
+from PyQt5.QtGui import QImage, QPixmap, QFont, QPalette, QColor
 
 # 导入模块
 from signal_handler.signal_handler import signal_handler, SystemState
@@ -63,15 +63,220 @@ class MainWindow(QMainWindow):
         self.setWindowTitle("地铁屏蔽门间隙检测系统")
         self.setGeometry(100, 100, 1200, 800)
         
+        # 设置扁平化现代风格
+        self.setStyleSheet("""
+            /* 基础容器样式 */
+            QMainWindow, QWidget {
+                background-color: #f5f5f5;
+                color: #333;
+                font-family: 'Segoe UI', 'Arial', sans-serif;
+                font-size: 14px;
+            }
+            
+            /* 状态栏样式 */
+            QStatusBar {
+                background-color: #ffffff;
+                color: #333;
+                font-size: 13px;
+                border-top: 1px solid #e0e0e0;
+                padding: 4px 10px;
+            }
+            
+            /* 分组框样式 */
+            QGroupBox {
+                background-color: #ffffff;
+                border: 1px solid #e0e0e0;
+                border-radius: 8px;
+                margin-top: 10px;
+                padding-top: 20px;
+                padding-bottom: 15px;
+            }
+            
+            QGroupBox::title {
+                subcontrol-origin: margin;
+                subcontrol-position: top left;
+                left: 15px;
+                padding: 0 8px 0 8px;
+                background-color: transparent;
+                color: #333;
+                font-weight: bold;
+                font-size: 14px;
+            }
+            
+            /* 按钮基础样式 */
+            QPushButton {
+                background-color: #2196F3;
+                color: white;
+                border: none;
+                padding: 10px 16px;
+                border-radius: 4px;
+                font-weight: normal;
+                font-size: 14px;
+                min-height: 32px;
+            }
+            
+            QPushButton:hover {
+                background-color: #1976D2;
+            }
+            
+            QPushButton:pressed {
+                background-color: #1565C0;
+            }
+            
+            QPushButton:disabled {
+                background-color: #e0e0e0;
+                color: #9e9e9e;
+            }
+            
+            /* 滑块样式 */
+            QSlider::groove:horizontal {
+                height: 8px;
+                background: #e0e0e0;
+                border-radius: 4px;
+                margin: 6px 0;
+            }
+            
+            QSlider::handle:horizontal {
+                width: 18px;
+                height: 18px;
+                background: #2196F3;
+                border-radius: 50%;
+                margin: -5px 0;
+            }
+            
+            QSlider::handle:horizontal:hover {
+                background: #1976D2;
+            }
+            
+            QSlider::handle:horizontal:pressed {
+                background: #1565C0;
+            }
+            
+            /* 下拉列表基础样式 */
+            QComboBox {
+                background-color: #ffffff;
+                border: 1px solid #e0e0e0;
+                border-radius: 4px;
+                padding: 6px;
+                selection-background-color: #2196F3;
+                selection-color: white;
+                min-height: 32px;
+                font-size: 14px;
+            }
+            
+            QComboBox::drop-down {
+                border: none;
+                background-color: transparent;
+                width: 25px;
+            }
+            
+            QComboBox::down-arrow {
+                image: url(:/icons/down-arrow.png);
+                width: 10px;
+                height: 10px;
+                padding-right: 5px;
+            }
+            
+            QComboBox:hover {
+                border-color: #90CAF9;
+            }
+            
+            QComboBox QAbstractItemView {
+                background-color: #ffffff;
+                border: 1px solid #e0e0e0;
+                border-radius: 4px;
+                padding: 4px;
+                selection-background-color: #2196F3;
+                selection-color: white;
+                font-size: 14px;
+            }
+            
+            /* 复选框基础样式 */
+            QCheckBox {
+                spacing: 8px;
+                color: #333;
+                font-size: 14px;
+                height: 24px;
+            }
+            
+            QCheckBox::indicator {
+                width: 20px;
+                height: 20px;
+                border: 2px solid #e0e0e0;
+                border-radius: 4px;
+                background-color: white;
+            }
+            
+            QCheckBox::indicator:hover {
+                border-color: #90CAF9;
+            }
+            
+            QCheckBox::indicator:checked {
+                background-color: #2196F3;
+                border-color: #2196F3;
+                image: url(:/icons/check-mark.png);
+            }
+            
+            QCheckBox::indicator:checked:hover {
+                background-color: #1976D2;
+                border-color: #1976D2;
+            }
+            
+            /* 文本编辑框样式 */
+            QTextEdit {
+                background-color: #ffffff;
+                border: 1px solid #e0e0e0;
+                border-radius: 4px;
+                padding: 10px;
+                color: #333;
+                font-family: 'Consolas', 'Monaco', monospace;
+                font-size: 13px;
+                line-height: 1.5;
+            }
+            
+            QTextEdit:focus {
+                border-color: #2196F3;
+                background-color: #ffffff;
+            }
+            
+            /* 标签样式 */
+            QLabel {
+                color: #424242;
+                font-size: 14px;
+            }
+            
+            /* 分割器样式 */
+            QSplitter::handle {
+                background-color: #e0e0e0;
+                width: 3px;
+                height: 3px;
+            }
+            
+            QSplitter::handle:hover {
+                background-color: #bdbdbd;
+            }
+            
+            /* 提示标签样式 */
+            .hint-label {
+                color: #757575;
+                font-size: 12px;
+                font-style: italic;
+            }
+        """)
+        
         # 创建中央部件
         central_widget = QWidget()
         self.setCentralWidget(central_widget)
         
         # 主布局
         main_layout = QVBoxLayout(central_widget)
+        main_layout.setContentsMargins(10, 10, 10, 10)
+        main_layout.setSpacing(10)
         
         # 创建分割器
         splitter = QSplitter(Qt.Horizontal)
+        splitter.setHandleWidth(5)
+        splitter.setStyleSheet("QSplitter::handle { background-color: #e0e0e0; border-radius: 2px; }")
         
         # 左侧控制面板
         control_panel = self.create_control_panel()
@@ -82,24 +287,44 @@ class MainWindow(QMainWindow):
         splitter.addWidget(display_area)
         
         # 设置分割器比例
-        splitter.setSizes([300, 900])
+        splitter.setSizes([350, 830])
         
         main_layout.addWidget(splitter)
         
         # 底部状态栏
         self.statusBar().showMessage("系统就绪")
+        self.statusBar().setStyleSheet("QStatusBar { background-color: #ffffff; border-top: 1px solid #e0e0e0; }")
     
     def create_control_panel(self):
         """创建控制面板"""
         panel = QWidget()
         layout = QVBoxLayout(panel)
+        layout.setContentsMargins(10, 10, 10, 10)
+        layout.setSpacing(15)
         
         # 摄像头控制组
         camera_group = QGroupBox("摄像头控制")
         camera_layout = QVBoxLayout()
+        camera_layout.setContentsMargins(10, 5, 10, 10)
+        camera_layout.setSpacing(10)
         
         self.camera_preview_button = QPushButton("开启摄像头预览")
-        self.camera_preview_button.setStyleSheet("background-color: #00BCD4; color: white; font-weight: bold;")
+        self.camera_preview_button.setStyleSheet("""
+            QPushButton {
+                background-color: #0097A7;
+                color: white;
+                border: none;
+                padding: 10px;
+                border-radius: 4px;
+                font-size: 14px;
+            }
+            QPushButton:hover {
+                background-color: #00796B;
+            }
+            QPushButton:pressed {
+                background-color: #00695C;
+            }
+        """)
         
         camera_layout.addWidget(self.camera_preview_button)
         camera_group.setLayout(camera_layout)
@@ -107,75 +332,79 @@ class MainWindow(QMainWindow):
         # 信号控制组（作为唯一的控制方式，整合所有控制功能）
         signal_group = QGroupBox("信号控制")
         signal_layout = QVBoxLayout()
+        signal_layout.setContentsMargins(10, 5, 10, 10)
+        signal_layout.setSpacing(10)
         
         self.close_command_button = QPushButton("关门命令")
-        self.close_command_button.setStyleSheet("background-color: #4CAF50; color: white; font-weight: bold;")
+        self.close_command_button.setStyleSheet("""
+            QPushButton {
+                background-color: #4CAF50;
+                color: white;
+                border: none;
+                padding: 10px;
+                border-radius: 4px;
+                font-size: 14px;
+            }
+            QPushButton:hover {
+                background-color: #388E3C;
+            }
+            QPushButton:pressed {
+                background-color: #2E7D32;
+            }
+        """)
         
         self.closed_command_button = QPushButton("已关闭命令")
-        self.closed_command_button.setStyleSheet("background-color: #2196F3; color: white; font-weight: bold;")
+        self.closed_command_button.setStyleSheet("""
+            QPushButton {
+                background-color: #2196F3;
+                color: white;
+                border: none;
+                padding: 10px;
+                border-radius: 4px;
+                font-size: 14px;
+            }
+            QPushButton:hover {
+                background-color: #1976D2;
+            }
+            QPushButton:pressed {
+                background-color: #1565C0;
+            }
+        """)
         
         self.reset_button = QPushButton("重置系统")
-        self.reset_button.setStyleSheet("background-color: #FF9800; color: white; font-weight: bold;")
+        self.reset_button.setStyleSheet("""
+            QPushButton {
+                background-color: #FF9800;
+                color: white;
+                border: none;
+                padding: 10px;
+                border-radius: 4px;
+                font-size: 14px;
+            }
+            QPushButton:hover {
+                background-color: #F57C00;
+            }
+            QPushButton:pressed {
+                background-color: #EF6C00;
+            }
+        """)
         
         signal_layout.addWidget(self.close_command_button)
         signal_layout.addWidget(self.closed_command_button)
         signal_layout.addWidget(self.reset_button)
         signal_group.setLayout(signal_layout)
         
-        # ROI设置组
-        roi_group = QGroupBox("ROI设置")
-        roi_layout = QGridLayout()
-        
-        # ROI启用复选框
-        self.roi_enable_checkbox = QCheckBox("启用ROI检测")
-        self.roi_enable_checkbox.setChecked(True)
-        roi_layout.addWidget(self.roi_enable_checkbox, 0, 0, 1, 3)
-        
-        # ROI坐标输入
-        roi_layout.addWidget(QLabel("X1:"), 1, 0)
-        self.roi_x1_input = QComboBox()
-        for i in range(0, 1280, 25):
-            self.roi_x1_input.addItem(str(i))
-        self.roi_x1_input.setCurrentText(str(self.roi_coords[0]))
-        roi_layout.addWidget(self.roi_x1_input, 1, 1)
-        
-        roi_layout.addWidget(QLabel("Y1:"), 1, 2)
-        self.roi_y1_input = QComboBox()
-        for i in range(0, 720, 25):
-            self.roi_y1_input.addItem(str(i))
-        self.roi_y1_input.setCurrentText(str(self.roi_coords[1]))
-        roi_layout.addWidget(self.roi_y1_input, 1, 3)
-        
-        roi_layout.addWidget(QLabel("X2:"), 2, 0)
-        self.roi_x2_input = QComboBox()
-        for i in range(0, 1280, 25):
-            self.roi_x2_input.addItem(str(i))
-        self.roi_x2_input.setCurrentText(str(self.roi_coords[2]))
-        roi_layout.addWidget(self.roi_x2_input, 2, 1)
-        
-        roi_layout.addWidget(QLabel("Y2:"), 2, 2)
-        self.roi_y2_input = QComboBox()
-        for i in range(0, 720, 25):
-            self.roi_y2_input.addItem(str(i))
-        self.roi_y2_input.setCurrentText(str(self.roi_coords[3]))
-        roi_layout.addWidget(self.roi_y2_input, 2, 3)
-        
-        # ROI编辑按钮
-        self.roi_edit_button = QPushButton("进入ROI编辑模式")
-        roi_layout.addWidget(self.roi_edit_button, 3, 0, 1, 4)
-        
-        # 应用ROI按钮
-        self.apply_roi_button = QPushButton("应用ROI设置")
-        roi_layout.addWidget(self.apply_roi_button, 4, 0, 1, 4)
-        
-        roi_group.setLayout(roi_layout)
-        
         # 检测参数组
         param_group = QGroupBox("检测参数")
         param_layout = QGridLayout()
+        param_layout.setContentsMargins(10, 5, 10, 10)
+        param_layout.setSpacing(10)
+        param_layout.setColumnStretch(0, 1)
+        param_layout.setColumnStretch(1, 3)
+        param_layout.setColumnStretch(2, 1)
         
         # 模型选择
-        param_layout.addWidget(QLabel("检测模型:"), 0, 0)
+        param_layout.addWidget(QLabel("检测模型:"), 0, 0, Qt.AlignRight | Qt.AlignVCenter)
         self.model_combo = QComboBox()
         # 预定义的YOLOv5模型选项
         self.available_models = [
@@ -188,6 +417,41 @@ class MainWindow(QMainWindow):
         # 添加自定义模型选项（支持用户通过文件对话框选择）
         self.model_combo.addItems(self.available_models)
         self.model_combo.addItem("自定义...")
+        
+        # 设置模型选择下拉列表样式
+        self.model_combo.setStyleSheet("""
+            QComboBox {
+                background-color: #ffffff;
+                border: 1px solid #e0e0e0;
+                border-radius: 4px;
+                padding: 6px;
+                selection-background-color: #2196F3;
+                selection-color: white;
+                min-height: 30px;
+            }
+            QComboBox::drop-down {
+                border: none;
+                background-color: transparent;
+                width: 25px;
+            }
+            QComboBox::down-arrow {
+                image: url(:/icons/down-arrow.png);
+                width: 10px;
+                height: 10px;
+                padding-right: 5px;
+            }
+            QComboBox:hover {
+                border-color: #90CAF9;
+            }
+            QComboBox QAbstractItemView {
+                background-color: #ffffff;
+                border: 1px solid #e0e0e0;
+                border-radius: 4px;
+                padding: 4px;
+                selection-background-color: #2196F3;
+                selection-color: white;
+            }
+        """)
         # 获取当前使用的模型
         current_model = detection_manager.weights_path.split(os.path.sep)[-1] if hasattr(detection_manager, 'weights_path') else "yolov5s.pt"
         # 尝试找到当前模型在下拉列表中的索引，如果找不到则默认选择yolov5s.pt
@@ -202,11 +466,12 @@ class MainWindow(QMainWindow):
         param_layout.addWidget(self.model_combo, 0, 1, 1, 2)
         
         # 置信度阈值
-        param_layout.addWidget(QLabel("置信度阈值:"), 1, 0)
+        param_layout.addWidget(QLabel("置信度阈值:"), 1, 0, Qt.AlignRight | Qt.AlignVCenter)
         self.confidence_slider = QSlider(Qt.Horizontal)
         self.confidence_slider.setRange(10, 90)
         self.confidence_slider.setValue(50)
         self.confidence_value = QLabel("50%")
+        self.confidence_value.setAlignment(Qt.AlignCenter)
         param_layout.addWidget(self.confidence_slider, 1, 1)
         param_layout.addWidget(self.confidence_value, 1, 2)
         
@@ -217,38 +482,52 @@ class MainWindow(QMainWindow):
         param_layout.addWidget(self.frame_validation_checkbox, 2, 0, 1, 3)
         
         # 连续帧数
-        param_layout.addWidget(QLabel("连续帧数:"), 3, 0)
+        param_layout.addWidget(QLabel("连续帧数:"), 3, 0, Qt.AlignRight | Qt.AlignVCenter)
         self.frame_count_slider = QSlider(Qt.Horizontal)
         self.frame_count_slider.setRange(1, 5)
+        # 设置滑块样式为扁平化现代风格
+        self.frame_count_slider.setStyleSheet("""
+            QSlider::groove:horizontal {
+                height: 8px;
+                background: #e0e0e0;
+                border-radius: 4px;
+            }
+            QSlider::handle:horizontal {
+                width: 18px;
+                height: 18px;
+                background: #2196F3;
+                border-radius: 50%;
+                margin: -5px 0;
+            }
+            QSlider::handle:horizontal:hover {
+                background: #1976D2;
+            }
+            QSlider::handle:horizontal:pressed {
+                background: #1565C0;
+            }
+        """)
+        
         self.frame_count_slider.setValue(2)
         self.frame_count_value = QLabel("2")
+        self.frame_count_value.setAlignment(Qt.AlignCenter)
+        self.frame_count_value.setStyleSheet("""
+            QLabel {
+                background-color: #ffffff;
+                border: 1px solid #e0e0e0;
+                border-radius: 4px;
+                padding: 2px 8px;
+                min-width: 30px;
+            }
+        """)
         param_layout.addWidget(self.frame_count_slider, 3, 1)
         param_layout.addWidget(self.frame_count_value, 3, 2)
         
         param_group.setLayout(param_layout)
         
-        # 状态显示
-        status_group = QGroupBox("系统状态")
-        status_layout = QVBoxLayout()
-        
-        self.state_label = QLabel("当前状态: 空闲")
-        status_layout.addWidget(self.state_label)
-        
-        # 检测结果显示
-        self.result_text = QTextEdit()
-        self.result_text.setReadOnly(True)
-        self.result_text.setFixedHeight(100)
-        status_layout.addWidget(QLabel("检测结果:"))
-        status_layout.addWidget(self.result_text)
-        
-        status_group.setLayout(status_layout)
-        
         # 添加到主布局
         layout.addWidget(camera_group)
         layout.addWidget(signal_group)
-        layout.addWidget(roi_group)
         layout.addWidget(param_group)
-        layout.addWidget(status_group)
         layout.addStretch()
         
         return panel
@@ -257,19 +536,275 @@ class MainWindow(QMainWindow):
         """创建显示区域"""
         area = QWidget()
         layout = QVBoxLayout(area)
+        layout.setContentsMargins(10, 10, 10, 10)
+        
+        # 创建视频显示容器
+        video_container = QGroupBox("视频显示")
+        video_container.setStyleSheet("""
+            QGroupBox {
+                background-color: #ffffff;
+                border: 1px solid #e0e0e0;
+                border-radius: 8px;
+                margin-top: 10px;
+                padding-top: 20px;
+                padding-bottom: 10px;
+            }
+            QGroupBox::title {
+                subcontrol-origin: margin;
+                subcontrol-position: top left;
+                left: 10px;
+                padding: 0 5px 0 5px;
+                background-color: transparent;
+                color: #333;
+                font-weight: bold;
+            }
+        """)
+        video_layout = QVBoxLayout(video_container)
+        video_layout.setContentsMargins(15, 5, 15, 15)
         
         # 视频显示
         self.video_label = QLabel("视频显示区域")
         self.video_label.setAlignment(Qt.AlignCenter)
-        self.video_label.setFrameStyle(QFrame.Panel | QFrame.Sunken)
         self.video_label.setMinimumSize(640, 480)
+        self.video_label.setStyleSheet("""
+            QLabel {
+                background-color: #000000;
+                color: #ffffff;
+                border-radius: 4px;
+                font-size: 16px;
+            }
+        """)
         
         # 为视频标签添加鼠标事件
         self.video_label.mousePressEvent = self.on_video_label_mouse_press
         self.video_label.mouseMoveEvent = self.on_video_label_mouse_move
         self.video_label.mouseReleaseEvent = self.on_video_label_mouse_release
         
-        layout.addWidget(self.video_label)
+        video_layout.addWidget(self.video_label)
+        layout.addWidget(video_container)
+        
+        # 创建底部信息区域
+        bottom_info_layout = QVBoxLayout()
+        bottom_info_layout.setSpacing(15)
+        
+        # 创建一个水平布局来放置ROI设置和系统状态
+        bottom_horizontal_layout = QHBoxLayout()
+        bottom_horizontal_layout.setSpacing(15)
+        
+        # 设置统一的下拉列表样式函数
+        def setup_combobox_style(combo):
+            combo.setStyleSheet("""
+                QComboBox {
+                    background-color: #ffffff;
+                    border: 1px solid #e0e0e0;
+                    border-radius: 4px;
+                    padding: 6px;
+                    selection-background-color: #2196F3;
+                    selection-color: white;
+                    min-height: 30px;
+                }
+                QComboBox::drop-down {
+                    border: none;
+                    background-color: transparent;
+                    width: 25px;
+                }
+                QComboBox::down-arrow {
+                    image: url(:/icons/down-arrow.png);
+                    width: 10px;
+                    height: 10px;
+                    padding-right: 5px;
+                }
+                QComboBox:hover {
+                    border-color: #90CAF9;
+                }
+                QComboBox QAbstractItemView {
+                    background-color: #ffffff;
+                    border: 1px solid #e0e0e0;
+                    border-radius: 4px;
+                    padding: 4px;
+                    selection-background-color: #2196F3;
+                    selection-color: white;
+                }
+            """)
+        
+        # ROI设置组
+        roi_group = QGroupBox("ROI设置")
+        roi_layout = QGridLayout()
+        roi_layout.setContentsMargins(10, 5, 10, 10)
+        
+        # ROI设置组样式
+        roi_group.setStyleSheet("""
+            QGroupBox {
+                background-color: #ffffff;
+                border: 1px solid #e0e0e0;
+                border-radius: 8px;
+                margin-top: 10px;
+                padding-top: 20px;
+                padding-bottom: 15px;
+                min-width: 400px;
+            }
+            QGroupBox::title {
+                subcontrol-origin: margin;
+                subcontrol-position: top left;
+                left: 10px;
+                padding: 0 5px 0 5px;
+                background-color: transparent;
+                color: #333;
+                font-weight: bold;
+            }
+        """)
+        
+        roi_layout.setSpacing(10)
+        roi_layout.setColumnStretch(0, 1)
+        roi_layout.setColumnStretch(1, 1)
+        roi_layout.setColumnStretch(2, 1)
+        roi_layout.setColumnStretch(3, 1)
+        
+        # ROI启用复选框
+        self.roi_enable_checkbox = QCheckBox("启用ROI")
+        self.roi_enable_checkbox.setChecked(True)  # 默认启用ROI
+        roi_layout.addWidget(self.roi_enable_checkbox, 0, 0, 1, 4)
+        
+        # 设置复选框样式
+        self.roi_enable_checkbox.setStyleSheet("""
+            QCheckBox {
+                color: #424242;
+                font-size: 14px;
+            }
+        """)
+        
+        # ROI坐标输入
+        roi_layout.addWidget(QLabel("X1:"), 1, 0, Qt.AlignRight)
+        self.roi_x1_input = QComboBox()
+        for i in range(0, 1280, 25):
+            self.roi_x1_input.addItem(str(i))
+        self.roi_x1_input.setCurrentText(str(self.roi_coords[0]))
+        setup_combobox_style(self.roi_x1_input)
+        roi_layout.addWidget(self.roi_x1_input, 1, 1)
+        
+        roi_layout.addWidget(QLabel("Y1:"), 1, 2, Qt.AlignRight)
+        self.roi_y1_input = QComboBox()
+        for i in range(0, 720, 25):
+            self.roi_y1_input.addItem(str(i))
+        self.roi_y1_input.setCurrentText(str(self.roi_coords[1]))
+        setup_combobox_style(self.roi_y1_input)
+        roi_layout.addWidget(self.roi_y1_input, 1, 3)
+        
+        roi_layout.addWidget(QLabel("X2:"), 2, 0, Qt.AlignRight)
+        self.roi_x2_input = QComboBox()
+        for i in range(0, 1280, 25):
+            self.roi_x2_input.addItem(str(i))
+        self.roi_x2_input.setCurrentText(str(self.roi_coords[2]))
+        setup_combobox_style(self.roi_x2_input)
+        roi_layout.addWidget(self.roi_x2_input, 2, 1)
+        
+        roi_layout.addWidget(QLabel("Y2:"), 2, 2, Qt.AlignRight)
+        self.roi_y2_input = QComboBox()
+        for i in range(0, 720, 25):
+            self.roi_y2_input.addItem(str(i))
+        self.roi_y2_input.setCurrentText(str(self.roi_coords[3]))
+        setup_combobox_style(self.roi_y2_input)
+        roi_layout.addWidget(self.roi_y2_input, 2, 3)
+        
+        # ROI编辑按钮
+        self.roi_edit_button = QPushButton("进入ROI编辑模式")
+        self.roi_edit_button.setStyleSheet("""
+            QPushButton {
+                background-color: #673AB7;
+                color: white;
+                border: none;
+                padding: 8px;
+                border-radius: 4px;
+            }
+            QPushButton:hover {
+                background-color: #512DA8;
+            }
+            QPushButton:pressed {
+                background-color: #4527A0;
+            }
+        """)
+        roi_layout.addWidget(self.roi_edit_button, 3, 0, 1, 2)
+        
+        # 应用ROI按钮
+        self.apply_roi_button = QPushButton("应用ROI设置")
+        self.apply_roi_button.setStyleSheet("""
+            QPushButton {
+                background-color: #00BCD4;
+                color: white;
+                border: none;
+                padding: 8px;
+                border-radius: 4px;
+            }
+            QPushButton:hover {
+                background-color: #0097A7;
+            }
+            QPushButton:pressed {
+                background-color: #00838F;
+            }
+        """)
+        roi_layout.addWidget(self.apply_roi_button, 3, 2, 1, 2)
+        
+        roi_group.setLayout(roi_layout)
+        
+        # 系统状态组
+        status_group = QGroupBox("系统状态")
+        status_layout = QVBoxLayout()
+        status_layout.setContentsMargins(10, 5, 10, 10)
+        status_layout.setSpacing(10)
+        
+        # 系统状态组样式
+        status_group.setStyleSheet("""
+            QGroupBox {
+                background-color: #ffffff;
+                border: 1px solid #e0e0e0;
+                border-radius: 8px;
+                margin-top: 10px;
+                padding-top: 20px;
+                padding-bottom: 15px;
+                min-width: 400px;
+            }
+            QGroupBox::title {
+                subcontrol-origin: margin;
+                subcontrol-position: top left;
+                left: 10px;
+                padding: 0 5px 0 5px;
+                background-color: transparent;
+                color: #333;
+                font-weight: bold;
+            }
+        """)
+        
+        self.state_label = QLabel("当前状态: 空闲")
+        self.state_label.setStyleSheet("font-weight: bold; color: #424242;")
+        status_layout.addWidget(self.state_label)
+        
+        # 检测结果显示
+        status_layout.addWidget(QLabel("检测结果:"))
+        self.result_text = QTextEdit()
+        self.result_text.setReadOnly(True)
+        self.result_text.setFixedHeight(100)
+        self.result_text.setStyleSheet("""
+            QTextEdit {
+                background-color: #fafafa;
+                border: 1px solid #e0e0e0;
+                border-radius: 4px;
+                padding: 8px;
+                font-family: 'Consolas', 'Monaco', monospace;
+                font-size: 12px;
+            }
+        """)
+        status_layout.addWidget(self.result_text)
+        
+        status_group.setLayout(status_layout)
+        
+        # 添加ROI设置和系统状态到水平布局
+        bottom_horizontal_layout.addWidget(roi_group)
+        bottom_horizontal_layout.addWidget(status_group)
+        bottom_info_layout.addLayout(bottom_horizontal_layout)
+        
+        # 将底部信息区域添加到主布局
+        layout.addLayout(bottom_info_layout)
+        layout.addStretch()
         
         return area
     
@@ -523,28 +1058,57 @@ class MainWindow(QMainWindow):
         alarm_dialog.setFixedSize(550, 400)
         alarm_dialog.setWindowModality(Qt.ApplicationModal)
         
-        # 设置对话框背景颜色
-        palette = alarm_dialog.palette()
-        palette.setColor(QPalette.Window, QColor(255, 250, 240))  # 淡奶油色作为背景
-        alarm_dialog.setPalette(palette)
+        # 设置对话框扁平化样式
+        alarm_dialog.setStyleSheet("""
+            QDialog {
+                background-color: #ffffff;
+                border-radius: 8px;
+                border: 1px solid #e0e0e0;
+            }
+        """)
         
         # 设置布局
         main_layout = QVBoxLayout(alarm_dialog)
-        main_layout.setSpacing(15)
-        main_layout.setContentsMargins(20, 20, 20, 20)
+        main_layout.setSpacing(20)
+        main_layout.setContentsMargins(25, 25, 25, 20)
         
         # 添加标题
         title_label = QLabel("⚠️ 检测到异物 ⚠️")
         title_label.setFont(QFont("Arial", 18, QFont.Bold))
         title_label.setAlignment(Qt.AlignCenter)
-        title_label.setStyleSheet("color: #E53935; background-color: #FFEBEE; padding: 8px; border-radius: 5px;")
+        title_label.setStyleSheet("""
+            QLabel {
+                color: #ffffff;
+                background-color: #F44336;
+                padding: 12px;
+                border-radius: 6px;
+            }
+        """)
         main_layout.addWidget(title_label)
         
         # 创建信息分组框
         info_group = QGroupBox("报警详细信息")
-        info_group.setFont(QFont("Arial", 11, QFont.Bold))
+        info_group.setStyleSheet("""
+            QGroupBox {
+                background-color: #ffffff;
+                border: 1px solid #e0e0e0;
+                border-radius: 6px;
+                margin-top: 5px;
+                padding-top: 15px;
+                padding-bottom: 5px;
+            }
+            QGroupBox::title {
+                subcontrol-origin: margin;
+                left: 10px;
+                padding: 0 5px 0 5px;
+                color: #333;
+                font-weight: bold;
+                font-size: 14px;
+            }
+        """)
         info_layout = QVBoxLayout(info_group)
-        info_layout.setSpacing(10)
+        info_layout.setSpacing(12)
+        info_layout.setContentsMargins(15, 5, 15, 15)
         
         # 报警信息 - 兼容不同的字段名格式
         time_label = QLabel(f"<b>报警时间：</b>{current_time}")
@@ -556,7 +1120,7 @@ class MainWindow(QMainWindow):
         object_label = QLabel(f"<b>异物种类：</b>{object_type}")
         
         # 设置字体大小和对齐方式
-        font = QFont("Arial", 10)
+        font = QFont("Arial", 12)
         time_label.setFont(font)
         position_label.setFont(font)
         object_label.setFont(font)
@@ -589,14 +1153,39 @@ class MainWindow(QMainWindow):
         warning_label = QLabel("🚨 请立即检查屏蔽门间隙，确保安全！ 🚨")
         warning_label.setAlignment(Qt.AlignCenter)
         warning_label.setWordWrap(True)  # 允许警告文本自动换行
-        warning_label.setStyleSheet("color: #E53935; font-size: 12px; font-weight: bold; background-color: #FFEBEE; padding: 10px; border-radius: 5px; letter-spacing: 0.5px;")
+        warning_label.setStyleSheet("""
+            QLabel {
+                color: #ffffff;
+                background-color: #FF5722;
+                padding: 12px;
+                border-radius: 6px;
+                font-size: 14px;
+                font-weight: bold;
+                letter-spacing: 0.5px;
+            }
+        """)
         main_layout.addWidget(warning_label)
         
         # 添加确认按钮布局
         button_layout = QHBoxLayout()
         confirm_button = QPushButton("确认")
-        confirm_button.setFont(QFont("Arial", 12, QFont.Bold))
-        confirm_button.setStyleSheet("background-color: #4CAF50; color: white; padding: 10px 20px; border-radius: 5px;")
+        confirm_button.setFont(QFont("Arial", 14, QFont.Bold))
+        confirm_button.setStyleSheet("""
+            QPushButton {
+                background-color: #4CAF50;
+                color: white;
+                border: none;
+                padding: 12px 30px;
+                border-radius: 4px;
+                font-weight: normal;
+            }
+            QPushButton:hover {
+                background-color: #388E3C;
+            }
+            QPushButton:pressed {
+                background-color: #2E7D32;
+            }
+        """)
         confirm_button.setMinimumWidth(120)  # 增加按钮宽度
         confirm_button.clicked.connect(alarm_dialog.accept)
         
@@ -739,12 +1328,48 @@ class MainWindow(QMainWindow):
         
     def closeEvent(self, event):
         """窗口关闭事件"""
-        reply = QMessageBox.question(
-            self, '确认退出', '确定要退出系统吗？',
-            QMessageBox.Yes | QMessageBox.No, QMessageBox.No
-        )
+        # 创建自定义消息框
+        msg_box = QMessageBox(self)
+        msg_box.setWindowTitle('确认退出')
+        msg_box.setText('确定要退出系统吗？')
+        msg_box.setIcon(QMessageBox.Question)
         
-        if reply == QMessageBox.Yes:
+        # 添加按钮
+        yes_button = msg_box.addButton("是", QMessageBox.YesRole)
+        no_button = msg_box.addButton("否", QMessageBox.NoRole)
+        msg_box.setDefaultButton(no_button)
+        
+        # 设置扁平化样式
+        msg_box.setStyleSheet("""
+            QMessageBox {
+                background-color: #f5f5f5;
+                border-radius: 8px;
+                border: 1px solid #e0e0e0;
+            }
+            QLabel {
+                color: #333;
+                font-size: 14px;
+            }
+            QPushButton {
+                background-color: #2196F3;
+                color: white;
+                border: none;
+                padding: 8px 16px;
+                border-radius: 4px;
+                font-size: 14px;
+                font-weight: normal;
+            }
+            QPushButton:hover {
+                background-color: #1976D2;
+            }
+            QPushButton:pressed {
+                background-color: #1565C0;
+            }
+        """)
+        
+        msg_box.exec_()
+        
+        if msg_box.clickedButton() == yes_button:
             # 停止检测等清理工作
             self.video_timer.stop()
             video_capturer.unregister_frame_callback(self.on_new_frame)
