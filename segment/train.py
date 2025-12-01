@@ -40,10 +40,13 @@ if str(ROOT) not in sys.path:
     sys.path.append(str(ROOT))  # add ROOT to PATH
 ROOT = Path(os.path.relpath(ROOT, Path.cwd()))  # relative
 
+
 # 不使用ultralytics，使用本地实现
 def torch_load(file_path, map_location=None, **kwargs):
     import torch
+
     return torch.load(file_path, map_location=map_location, **kwargs)
+
 
 import segment.val as validate  # for end-of-epoch mAP
 from models.experimental import attempt_load
@@ -101,8 +104,7 @@ GIT_INFO = check_git_info()
 
 
 def train(hyp, opt, device, callbacks):
-    """
-    Trains the YOLOv5 model on a dataset, managing hyperparameters, model optimization, logging, and validation.
+    """Trains the YOLOv5 model on a dataset, managing hyperparameters, model optimization, logging, and validation.
 
     `hyp` is path/to/hyp.yaml or hyp dictionary.
     """
@@ -546,8 +548,7 @@ def train(hyp, opt, device, callbacks):
 
 
 def parse_opt(known=False):
-    """
-    Parses command line arguments for training configurations, returning parsed arguments.
+    """Parses command line arguments for training configurations, returning parsed arguments.
 
     Supports both known and unknown args.
     """
@@ -752,8 +753,7 @@ def main(opt, callbacks=Callbacks()):
 
 
 def run(**kwargs):
-    """
-    Executes YOLOv5 training with given parameters, altering options programmatically; returns updated options.
+    """Executes YOLOv5 training with given parameters, altering options programmatically; returns updated options.
 
     Example: import train; train.run(data='coco128.yaml', imgsz=320, weights='yolov5m.pt')
     """

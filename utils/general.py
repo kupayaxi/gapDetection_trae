@@ -1,6 +1,8 @@
 # Ultralytics 🚀 AGPL-3.0 License - https://ultralytics.com/license
 """General utils."""
 
+from __future__ import annotations
+
 import contextlib
 import glob
 import inspect
@@ -23,7 +25,6 @@ from multiprocessing.pool import ThreadPool
 from pathlib import Path
 from subprocess import check_output
 from tarfile import is_tarfile
-from typing import Optional
 from zipfile import ZipFile, is_zipfile
 
 import cv2
@@ -37,45 +38,49 @@ import yaml
 # 不使用ultralytics，直接使用PyTorch和YOLOv5原生代码
 # 移除对ultralytics的依赖，避免安装问题
 
+
 # 添加check_requirements函数的简单实现
 def check_requirements(requirements=(), exclude=()):
-    """检查并安装依赖包
-    
+    """检查并安装依赖包.
+
     Args:
         requirements: 需要检查的包列表
         exclude: 需要排除的包列表
     """
     import subprocess
     import sys
+
     import pkg_resources
-    
+
     # 简单实现，实际项目中可能需要更复杂的检查
     for r in requirements:
         if r not in exclude:
             try:
                 pkg_resources.require(r)
             except (pkg_resources.DistributionNotFound, pkg_resources.VersionConflict):
-                print(f'WARNING: 尝试安装 {r}')
+                print(f"WARNING: 尝试安装 {r}")
                 try:
-                    subprocess.check_call([sys.executable, '-m', 'pip', 'install', r])
+                    subprocess.check_call([sys.executable, "-m", "pip", "install", r])
                 except:
-                    print(f'WARNING: 无法安装 {r}')
+                    print(f"WARNING: 无法安装 {r}")
     return True
+
 
 # 使用PyTorch标准的torch.load函数替代ultralytics.utils.patches.torch_load
 def torch_load(file_path, map_location=None, **kwargs):
     return torch.load(file_path, map_location=map_location, **kwargs)
 
+
 # 添加缺失的scale_coords函数
 def scale_coords(img1_shape, coords, img0_shape, ratio_pad=None):
-    """将坐标从img1_shape缩放到img0_shape
-    
+    """将坐标从img1_shape缩放到img0_shape.
+
     Args:
         img1_shape: 源图像尺寸 [h, w]
         coords: 坐标 (n,4) 格式为 [x1, y1, x2, y2]
         img0_shape: 目标图像尺寸 [h, w]
         ratio_pad: 缩放比例和填充 (r, p)，如果为None则自动计算
-    
+
     Returns:
         缩放后的坐标 (n,4)
     """
@@ -85,28 +90,30 @@ def scale_coords(img1_shape, coords, img0_shape, ratio_pad=None):
         gain = min(img1_shape[0] / img0_shape[0], img1_shape[1] / img0_shape[1])  # gain  = old / new
         pad = (img1_shape[1] - img0_shape[1] * gain) / 2, (img1_shape[0] - img0_shape[0] * gain) / 2  # wh padding
         ratio_pad = (gain, pad)
-    
+
     gain, pad = ratio_pad
-    
+
     # 调整坐标，去除填充
     coords[:, [0, 2]] -= pad[0]  # x padding
     coords[:, [1, 3]] -= pad[1]  # y padding
     coords[:, :4] /= gain  # 缩放坐标
-    
+
     # 裁剪坐标到图像边界
     clip_coords(coords, img0_shape)
-    
+
     return coords
 
+
 def clip_coords(boxes, shape):
-    """裁剪边界框坐标到图像边界内
-    
+    """裁剪边界框坐标到图像边界内.
+
     Args:
         boxes: 边界框坐标 (n,4) 格式为 [x1, y1, x2, y2]
         shape: 图像尺寸 [h, w]
     """
     boxes[:, [0, 2]] = boxes[:, [0, 2]].clamp(0, shape[1])  # x1, x2
     boxes[:, [1, 3]] = boxes[:, [1, 3]].clamp(0, shape[0])  # y1, y2
+
 
 from utils import TryExcept, emojis
 from utils.downloads import curl_download, gsutil_getsize
@@ -152,8 +159,8 @@ def is_colab():
 
 
 def is_jupyter():
-    """
-    Check if the current script is running inside a Jupyter Notebook. Verified on Colab, Jupyterlab, Kaggle, Paperspace.
+    """Check if the current script is running inside a Jupyter Notebook. Verified on Colab, Jupyterlab, Kaggle,
+    Paperspace.
 
     Returns:
         bool: True if running inside a Jupyter Notebook, False otherwise.
@@ -324,7 +331,7 @@ def methods(instance):
     return [f for f in dir(instance) if callable(getattr(instance, f)) and not f.startswith("__")]
 
 
-def print_args(args: Optional[dict] = None, show_file=True, show_func=False):
+def print_args(args: dict | None = None, show_file=True, show_func=False):
     """Logs the arguments of the calling function, with options to include the filename and function name."""
     x = inspect.currentframe().f_back  # previous frame
     file, _, func, _, _ = inspect.getframeinfo(x)
@@ -340,8 +347,7 @@ def print_args(args: Optional[dict] = None, show_file=True, show_func=False):
 
 
 def init_seeds(seed=0, deterministic=False):
-    """
-    Initializes RNG seeds and sets deterministic options if specified.
+    """Initializes RNG seeds and sets deterministic options if specified.
 
     See https://pytorch.org/docs/stable/notes/randomness.html
     """
@@ -419,8 +425,7 @@ def check_online():
 
 
 def git_describe(path=ROOT):
-    """
-    Returns a human-readable git description of the repository at `path`, or an empty string on failure.
+    """Returns a human-readable git description of the repository at `path`, or an empty string on failure.
 
     Example output is 'fv5.0-5-g3e25f1e'. See https://git-scm.com/docs/git-describe.
     """
@@ -618,7 +623,7 @@ def check_dataset(data, autodownload=True):
                 data[k] = [str((path / x).resolve()) for x in data[k]]
 
     # Parse yaml
-    train, val, test, s = (data.get(x) for x in ("train", "val", "test", "download"))
+    _train, val, _test, s = (data.get(x) for x in ("train", "val", "test", "download"))
     if val:
         val = [Path(x).resolve() for x in (val if isinstance(val, list) else [val])]  # val path
         if not all(x.exists() for x in val):
@@ -703,8 +708,7 @@ def unzip_file(file, path=None, exclude=(".DS_Store", "__MACOSX")):
 
 
 def url2file(url):
-    """
-    Converts a URL string to a valid filename by stripping protocol, domain, and any query parameters.
+    """Converts a URL string to a valid filename by stripping protocol, domain, and any query parameters.
 
     Example https://url.com/file.txt?auth -> file.txt
     """
@@ -774,8 +778,7 @@ def clean_str(s):
 
 
 def one_cycle(y1=0.0, y2=1.0, steps=100):
-    """
-    Generates a lambda for a sinusoidal ramp from y1 to y2 over 'steps'.
+    """Generates a lambda for a sinusoidal ramp from y1 to y2 over 'steps'.
 
     See https://arxiv.org/pdf/1812.01187.pdf for details.
     """
@@ -783,8 +786,7 @@ def one_cycle(y1=0.0, y2=1.0, steps=100):
 
 
 def colorstr(*input):
-    """
-    Colors a string using ANSI escape codes, e.g., colorstr('blue', 'hello world').
+    """Colors a string using ANSI escape codes, e.g., colorstr('blue', 'hello world').
 
     See https://en.wikipedia.org/wiki/ANSI_escape_code.
     """
@@ -840,8 +842,7 @@ def labels_to_image_weights(labels, nc=80, class_weights=np.ones(80)):
 
 
 def coco80_to_coco91_class():
-    """
-    Converts COCO 80-class index to COCO 91-class index used in the paper.
+    """Converts COCO 80-class index to COCO 91-class index used in the paper.
 
     Reference: https://tech.amikelive.com/node-718/what-object-categories-labels-are-in-coco-dataset/
     """
@@ -1081,11 +1082,10 @@ def non_max_suppression(
     max_det=300,
     nm=0,  # number of masks
 ):
-    """
-    Non-Maximum Suppression (NMS) on inference results to reject overlapping detections.
+    """Non-Maximum Suppression (NMS) on inference results to reject overlapping detections.
 
     Returns:
-         list of detections, on (n,6) tensor per image [xyxy, conf, cls]
+        list of detections, on (n,6) tensor per image [xyxy, conf, cls]
     """
     # Checks
     assert 0 <= conf_thres <= 1, f"Invalid Confidence threshold {conf_thres}, valid values are between 0.0 and 1.0"
@@ -1184,8 +1184,7 @@ def non_max_suppression(
 
 
 def strip_optimizer(f="best.pt", s=""):
-    """
-    Strips optimizer and optionally saves checkpoint to finalize training; arguments are file path 'f' and save path
+    """Strips optimizer and optionally saves checkpoint to finalize training; arguments are file path 'f' and save path
     's'.
 
     Example: from utils.general import *; strip_optimizer()
@@ -1295,8 +1294,7 @@ def apply_classifier(x, model, img, im0):
 
 
 def increment_path(path, exist_ok=False, sep="", mkdir=False):
-    """
-    Generates an incremented file or directory path if it exists, with optional mkdir; args: path, exist_ok=False,
+    """Generates an incremented file or directory path if it exists, with optional mkdir; args: path, exist_ok=False,
     sep="", mkdir=False.
 
     Example: runs/exp --> runs/exp{sep}2, runs/exp{sep}3, ... etc

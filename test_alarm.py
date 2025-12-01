@@ -18,10 +18,10 @@ time.sleep(3)
 
 # 创建报警信息
 alarm_info = {
-    'timestamp': time.strftime("%Y-%m-%d %H:%M:%S"),
-    'position': "屏蔽门1号间隙",
-    'object_type': "不明物体",
-    'detail': "模拟测试报警，确认弹窗显示"
+    "timestamp": time.strftime("%Y-%m-%d %H:%M:%S"),
+    "position": "屏蔽门1号间隙",
+    "object_type": "不明物体",
+    "detail": "模拟测试报警，确认弹窗显示",
 }
 
 # 触发报警
