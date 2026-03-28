@@ -37,45 +37,51 @@ import yaml
 # 不使用ultralytics，直接使用PyTorch和YOLOv5原生代码
 # 移除对ultralytics的依赖，避免安装问题
 
+
 # 添加check_requirements函数的简单实现
 def check_requirements(requirements=(), exclude=()):
-    """检查并安装依赖包
-    
+    """
+    检查并安装依赖包.
+
     Args:
         requirements: 需要检查的包列表
         exclude: 需要排除的包列表
     """
     import subprocess
     import sys
+
     import pkg_resources
-    
+
     # 简单实现，实际项目中可能需要更复杂的检查
     for r in requirements:
         if r not in exclude:
             try:
                 pkg_resources.require(r)
             except (pkg_resources.DistributionNotFound, pkg_resources.VersionConflict):
-                print(f'WARNING: 尝试安装 {r}')
+                print(f"WARNING: 尝试安装 {r}")
                 try:
-                    subprocess.check_call([sys.executable, '-m', 'pip', 'install', r])
+                    subprocess.check_call([sys.executable, "-m", "pip", "install", r])
                 except:
-                    print(f'WARNING: 无法安装 {r}')
+                    print(f"WARNING: 无法安装 {r}")
     return True
+
 
 # 使用PyTorch标准的torch.load函数替代ultralytics.utils.patches.torch_load
 def torch_load(file_path, map_location=None, **kwargs):
     return torch.load(file_path, map_location=map_location, **kwargs)
 
+
 # 添加缺失的scale_coords函数
 def scale_coords(img1_shape, coords, img0_shape, ratio_pad=None):
-    """将坐标从img1_shape缩放到img0_shape
-    
+    """
+    将坐标从img1_shape缩放到img0_shape.
+
     Args:
         img1_shape: 源图像尺寸 [h, w]
         coords: 坐标 (n,4) 格式为 [x1, y1, x2, y2]
         img0_shape: 目标图像尺寸 [h, w]
         ratio_pad: 缩放比例和填充 (r, p)，如果为None则自动计算
-    
+
     Returns:
         缩放后的坐标 (n,4)
     """
@@ -85,28 +91,31 @@ def scale_coords(img1_shape, coords, img0_shape, ratio_pad=None):
         gain = min(img1_shape[0] / img0_shape[0], img1_shape[1] / img0_shape[1])  # gain  = old / new
         pad = (img1_shape[1] - img0_shape[1] * gain) / 2, (img1_shape[0] - img0_shape[0] * gain) / 2  # wh padding
         ratio_pad = (gain, pad)
-    
+
     gain, pad = ratio_pad
-    
+
     # 调整坐标，去除填充
     coords[:, [0, 2]] -= pad[0]  # x padding
     coords[:, [1, 3]] -= pad[1]  # y padding
     coords[:, :4] /= gain  # 缩放坐标
-    
+
     # 裁剪坐标到图像边界
     clip_coords(coords, img0_shape)
-    
+
     return coords
 
+
 def clip_coords(boxes, shape):
-    """裁剪边界框坐标到图像边界内
-    
+    """
+    裁剪边界框坐标到图像边界内.
+
     Args:
         boxes: 边界框坐标 (n,4) 格式为 [x1, y1, x2, y2]
         shape: 图像尺寸 [h, w]
     """
     boxes[:, [0, 2]] = boxes[:, [0, 2]].clamp(0, shape[1])  # x1, x2
     boxes[:, [1, 3]] = boxes[:, [1, 3]].clamp(0, shape[0])  # y1, y2
+
 
 from utils import TryExcept, emojis
 from utils.downloads import curl_download, gsutil_getsize

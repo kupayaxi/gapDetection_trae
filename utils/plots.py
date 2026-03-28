@@ -16,21 +16,21 @@ import seaborn as sn
 import torch
 from PIL import Image, ImageDraw, ImageFont
 from scipy.ndimage.filters import gaussian_filter1d
+
 # 不使用ultralytics，使用本地实现
 # from ultralytics.utils.plotting import Annotator
-
 from utils import TryExcept, threaded
 from utils.general import LOGGER, clip_boxes, increment_path, xywh2xyxy, xyxy2xywh
 from utils.metrics import fitness
 
 
 class Annotator:
-    """绘制图像注释的实用程序类。"""
-    
-    def __init__(self, im, line_width=None, font_size=None, font='Arial.ttf', pil=False, example='abc'):
+    """绘制图像注释的实用程序类。."""
+
+    def __init__(self, im, line_width=None, font_size=None, font="Arial.ttf", pil=False, example="abc"):
         """
-        初始化Annotator对象。
-        
+        初始化Annotator对象。.
+
         参数:
             im: 输入图像 (numpy array 或 PIL Image)
             line_width: 线宽，None表示自动计算
@@ -48,11 +48,11 @@ class Annotator:
         self.lw = line_width or max(round(sum(self.im.shape) / 2 * 0.003), 2)
         self.fs = font_size or max(round(self.lw * 1.3), 10)
         self.font = font
-    
+
     def rectangle(self, xy, fill=None, color=(255, 255, 255), width=1):
         """
-        在图像上绘制矩形。
-        
+        在图像上绘制矩形。.
+
         参数:
             xy: 矩形坐标 [x1, y1, x2, y2]
             fill: 填充颜色，None表示不填充
@@ -65,11 +65,11 @@ class Annotator:
             if fill is not None:
                 cv2.rectangle(self.im, (xy[0], xy[1]), (xy[2], xy[3]), fill, -1)
             cv2.rectangle(self.im, (xy[0], xy[1]), (xy[2], xy[3]), color, width)
-    
-    def text(self, xy, text, txt_color=(220, 220, 220), anchor='top'):
+
+    def text(self, xy, text, txt_color=(220, 220, 220), anchor="top"):
         """
-        在图像上添加文本。
-        
+        在图像上添加文本。.
+
         参数:
             xy: 文本位置坐标 [x, y]
             text: 要添加的文本
@@ -79,13 +79,20 @@ class Annotator:
         if self.pil:
             self.draw.text((xy[0], xy[1]), text, fill=txt_color)
         else:
-            cv2.putText(self.im, text, (xy[0], xy[1]), cv2.FONT_HERSHEY_SIMPLEX, 
-                        self.fs / 30, txt_color, thickness=max(self.lw // 2, 1))
-    
-    def box_label(self, box, label='', color=(255, 255, 255), txt_color=(220, 220, 220)):
+            cv2.putText(
+                self.im,
+                text,
+                (xy[0], xy[1]),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                self.fs / 30,
+                txt_color,
+                thickness=max(self.lw // 2, 1),
+            )
+
+    def box_label(self, box, label="", color=(255, 255, 255), txt_color=(220, 220, 220)):
         """
-        在图像上绘制边界框和标签。
-        
+        在图像上绘制边界框和标签。.
+
         参数:
             box: 边界框坐标 [x1, y1, x2, y2]
             label: 标签文本
@@ -94,7 +101,7 @@ class Annotator:
         """
         # 绘制边界框
         self.rectangle(box, width=self.lw, color=color)
-        
+
         # 绘制标签背景
         if label:
             if self.pil:
@@ -108,14 +115,22 @@ class Annotator:
                 outside = box[1] - h >= 3
                 p2 = box[0] + w, box[1] - h - 3 if outside else box[1] + h + 3
                 cv2.rectangle(self.im, (box[0], box[1] - 3 * h if outside else box[1]), p2, color, -1, cv2.LINE_AA)
-                cv2.putText(self.im, label, (box[0], box[1] - 2 if outside else box[1] + h + 2), 
-                            cv2.FONT_HERSHEY_SIMPLEX, self.fs / 30, txt_color, 
-                            thickness=max(self.lw // 2, 1), lineType=cv2.LINE_AA)
-    
+                cv2.putText(
+                    self.im,
+                    label,
+                    (box[0], box[1] - 2 if outside else box[1] + h + 2),
+                    cv2.FONT_HERSHEY_SIMPLEX,
+                    self.fs / 30,
+                    txt_color,
+                    thickness=max(self.lw // 2, 1),
+                    lineType=cv2.LINE_AA,
+                )
+
     @property
     def image(self):
-        """返回注释后的图像。"""
+        """返回注释后的图像。."""
         return np.asarray(self.im) if self.pil else self.im
+
 
 # Settings
 RANK = int(os.getenv("RANK", -1))

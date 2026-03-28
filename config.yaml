@@ -7,21 +7,21 @@ detection:
   iou_threshold: 0.45
   max_det: 1000
   relevant_classes:
-  - 0
-  - 24
-  - 25
-  - 26
-  - 28
-  - 39
-  - 41
-  - 67
-  - 27
-  - 77
+    - 0
+    - 24
+    - 25
+    - 26
+    - 28
+    - 39
+    - 41
+    - 67
+    - 27
+    - 77
   roi:
-  - 50
-  - 50
-  - 600
-  - 175
+    - 50
+    - 50
+    - 600
+    - 175
   small_object_area_threshold: 2500
   weights: yolov5s.pt
 log:
