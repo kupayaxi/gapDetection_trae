@@ -6,9 +6,12 @@ import math
 import numpy as np
 import torch
 import torch.nn as nn
+
+
 # 使用PyTorch标准的torch.load函数替代ultralytics.utils.patches.torch_load
 def torch_load(file_path, map_location=None, **kwargs):
     return torch.load(file_path, map_location=map_location, **kwargs)
+
 
 from utils.downloads import attempt_download
 
@@ -89,8 +92,7 @@ class Ensemble(nn.ModuleList):
 
 
 def attempt_load(weights, device=None, inplace=True, fuse=True):
-    """
-    Loads and fuses an ensemble or single YOLOv5 model from weights, handling device placement and model adjustments.
+    """Loads and fuses an ensemble or single YOLOv5 model from weights, handling device placement and model adjustments.
 
     Example inputs: weights=[a,b,c] or a single model weights=[a] or weights=a.
     """

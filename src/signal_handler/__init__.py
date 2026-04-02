@@ -1,4 +1,4 @@
 # 信号处理模块初始化文件
-from .signal_handler import signal_handler, SystemState
+from .signal_handler import SystemState, signal_handler
 
-__all__ = ['signal_handler', 'SystemState']
+__all__ = ["SystemState", "signal_handler"]

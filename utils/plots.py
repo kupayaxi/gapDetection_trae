@@ -16,21 +16,20 @@ import seaborn as sn
 import torch
 from PIL import Image, ImageDraw, ImageFont
 from scipy.ndimage.filters import gaussian_filter1d
+
 # 不使用ultralytics，使用本地实现
 # from ultralytics.utils.plotting import Annotator
-
 from utils import TryExcept, threaded
 from utils.general import LOGGER, clip_boxes, increment_path, xywh2xyxy, xyxy2xywh
 from utils.metrics import fitness
 
 
 class Annotator:
-    """绘制图像注释的实用程序类。"""
-    
-    def __init__(self, im, line_width=None, font_size=None, font='Arial.ttf', pil=False, example='abc'):
-        """
-        初始化Annotator对象。
-        
+    """绘制图像注释的实用程序类。."""
+
+    def __init__(self, im, line_width=None, font_size=None, font="Arial.ttf", pil=False, example="abc"):
+        """初始化Annotator对象。.
+
         参数:
             im: 输入图像 (numpy array 或 PIL Image)
             line_width: 线宽，None表示自动计算
@@ -48,11 +47,10 @@ class Annotator:
         self.lw = line_width or max(round(sum(self.im.shape) / 2 * 0.003), 2)
         self.fs = font_size or max(round(self.lw * 1.3), 10)
         self.font = font
-    
+
     def rectangle(self, xy, fill=None, color=(255, 255, 255), width=1):
-        """
-        在图像上绘制矩形。
-        
+        """在图像上绘制矩形。.
+
         参数:
             xy: 矩形坐标 [x1, y1, x2, y2]
             fill: 填充颜色，None表示不填充
@@ -65,11 +63,10 @@ class Annotator:
             if fill is not None:
                 cv2.rectangle(self.im, (xy[0], xy[1]), (xy[2], xy[3]), fill, -1)
             cv2.rectangle(self.im, (xy[0], xy[1]), (xy[2], xy[3]), color, width)
-    
-    def text(self, xy, text, txt_color=(220, 220, 220), anchor='top'):
-        """
-        在图像上添加文本。
-        
+
+    def text(self, xy, text, txt_color=(220, 220, 220), anchor="top"):
+        """在图像上添加文本。.
+
         参数:
             xy: 文本位置坐标 [x, y]
             text: 要添加的文本
@@ -79,13 +76,19 @@ class Annotator:
         if self.pil:
             self.draw.text((xy[0], xy[1]), text, fill=txt_color)
         else:
-            cv2.putText(self.im, text, (xy[0], xy[1]), cv2.FONT_HERSHEY_SIMPLEX, 
-                        self.fs / 30, txt_color, thickness=max(self.lw // 2, 1))
-    
-    def box_label(self, box, label='', color=(255, 255, 255), txt_color=(220, 220, 220)):
-        """
-        在图像上绘制边界框和标签。
-        
+            cv2.putText(
+                self.im,
+                text,
+                (xy[0], xy[1]),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                self.fs / 30,
+                txt_color,
+                thickness=max(self.lw // 2, 1),
+            )
+
+    def box_label(self, box, label="", color=(255, 255, 255), txt_color=(220, 220, 220)):
+        """在图像上绘制边界框和标签。.
+
         参数:
             box: 边界框坐标 [x1, y1, x2, y2]
             label: 标签文本
@@ -94,7 +97,7 @@ class Annotator:
         """
         # 绘制边界框
         self.rectangle(box, width=self.lw, color=color)
-        
+
         # 绘制标签背景
         if label:
             if self.pil:
@@ -108,14 +111,22 @@ class Annotator:
                 outside = box[1] - h >= 3
                 p2 = box[0] + w, box[1] - h - 3 if outside else box[1] + h + 3
                 cv2.rectangle(self.im, (box[0], box[1] - 3 * h if outside else box[1]), p2, color, -1, cv2.LINE_AA)
-                cv2.putText(self.im, label, (box[0], box[1] - 2 if outside else box[1] + h + 2), 
-                            cv2.FONT_HERSHEY_SIMPLEX, self.fs / 30, txt_color, 
-                            thickness=max(self.lw // 2, 1), lineType=cv2.LINE_AA)
-    
+                cv2.putText(
+                    self.im,
+                    label,
+                    (box[0], box[1] - 2 if outside else box[1] + h + 2),
+                    cv2.FONT_HERSHEY_SIMPLEX,
+                    self.fs / 30,
+                    txt_color,
+                    thickness=max(self.lw // 2, 1),
+                    lineType=cv2.LINE_AA,
+                )
+
     @property
     def image(self):
-        """返回注释后的图像。"""
+        """返回注释后的图像。."""
         return np.asarray(self.im) if self.pil else self.im
+
 
 # Settings
 RANK = int(os.getenv("RANK", -1))
@@ -127,8 +138,8 @@ class Colors:
     """Provides an RGB color palette derived from Ultralytics color scheme for visualization tasks."""
 
     def __init__(self):
-        """
-        Initializes the Colors class with a palette derived from Ultralytics color scheme, converting hex codes to RGB.
+        """Initializes the Colors class with a palette derived from Ultralytics color scheme, converting hex codes to
+        RGB.
 
         Colors derived from `hex = matplotlib.colors.TABLEAU_COLORS.values()`.
         """
@@ -172,23 +183,19 @@ colors = Colors()  # create instance for 'from utils.plots import colors'
 
 
 def feature_visualization(x, module_type, stage, n=32, save_dir=Path("runs/detect/exp")):
-    """
-    x:              Features to be visualized
-    module_type:    Module type
-    stage:          Module stage within model
-    n:              Maximum number of feature maps to plot
-    save_dir:       Directory to save results.
+    """x: Features to be visualized module_type: Module type stage: Module stage within model n: Maximum number of
+    feature maps to plot save_dir: Directory to save results.
     """
     if ("Detect" not in module_type) and (
         "Segment" not in module_type
     ):  # 'Detect' for Object Detect task,'Segment' for Segment task
-        batch, channels, height, width = x.shape  # batch, channels, height, width
+        _batch, channels, height, width = x.shape  # batch, channels, height, width
         if height > 1 and width > 1:
             f = save_dir / f"stage{stage}_{module_type.split('.')[-1]}_features.png"  # filename
 
             blocks = torch.chunk(x[0].cpu(), channels, dim=0)  # select batch index 0, block by channels
             n = min(n, channels)  # number of plots
-            fig, ax = plt.subplots(math.ceil(n / 8), 8, tight_layout=True)  # 8 rows x n/8 cols
+            _fig, ax = plt.subplots(math.ceil(n / 8), 8, tight_layout=True)  # 8 rows x n/8 cols
             ax = ax.ravel()
             plt.subplots_adjust(wspace=0.05, hspace=0.05)
             for i in range(n):
@@ -202,8 +209,7 @@ def feature_visualization(x, module_type, stage, n=32, save_dir=Path("runs/detec
 
 
 def hist2d(x, y, n=100):
-    """
-    Generates a logarithmic 2D histogram, useful for visualizing label or evolution distributions.
+    """Generates a logarithmic 2D histogram, useful for visualizing label or evolution distributions.
 
     Used in used in labels.png and evolve.png.
     """
@@ -326,8 +332,7 @@ def plot_lr_scheduler(optimizer, scheduler, epochs=300, save_dir=""):
 
 
 def plot_val_txt():
-    """
-    Plots 2D and 1D histograms of bounding box centers from 'val.txt' using matplotlib, saving as 'hist2d.png' and
+    """Plots 2D and 1D histograms of bounding box centers from 'val.txt' using matplotlib, saving as 'hist2d.png' and
     'hist1d.png'.
 
     Example: from utils.plots import *; plot_val()
@@ -341,21 +346,20 @@ def plot_val_txt():
     ax.set_aspect("equal")
     plt.savefig("hist2d.png", dpi=300)
 
-    fig, ax = plt.subplots(1, 2, figsize=(12, 6), tight_layout=True)
+    _fig, ax = plt.subplots(1, 2, figsize=(12, 6), tight_layout=True)
     ax[0].hist(cx, bins=600)
     ax[1].hist(cy, bins=600)
     plt.savefig("hist1d.png", dpi=200)
 
 
 def plot_targets_txt():
-    """
-    Plots histograms of object detection targets from 'targets.txt', saving the figure as 'targets.jpg'.
+    """Plots histograms of object detection targets from 'targets.txt', saving the figure as 'targets.jpg'.
 
     Example: from utils.plots import *; plot_targets_txt()
     """
     x = np.loadtxt("targets.txt", dtype=np.float32).T
     s = ["x targets", "y targets", "width targets", "height targets"]
-    fig, ax = plt.subplots(2, 2, figsize=(8, 8), tight_layout=True)
+    _fig, ax = plt.subplots(2, 2, figsize=(8, 8), tight_layout=True)
     ax = ax.ravel()
     for i in range(4):
         ax[i].hist(x[i], bins=100, label=f"{x[i].mean():.3g} +/- {x[i].std():.3g}")
@@ -365,8 +369,7 @@ def plot_targets_txt():
 
 
 def plot_val_study(file="", dir="", x=None):
-    """
-    Plots validation study results from 'study*.txt' files in a directory or a specific file, comparing model
+    """Plots validation study results from 'study*.txt' files in a directory or a specific file, comparing model
     performance and speed.
 
     Example: from utils.plots import *; plot_val_study()
@@ -376,7 +379,7 @@ def plot_val_study(file="", dir="", x=None):
     if plot2:
         ax = plt.subplots(2, 4, figsize=(10, 6), tight_layout=True)[1].ravel()
 
-    fig2, ax2 = plt.subplots(1, 1, figsize=(8, 4), tight_layout=True)
+    _fig2, ax2 = plt.subplots(1, 1, figsize=(8, 4), tight_layout=True)
     # for f in [save_dir / f'study_coco_{x}.txt' for x in ['yolov5n6', 'yolov5s6', 'yolov5m6', 'yolov5l6', 'yolov5x6']]:
     for f in sorted(save_dir.glob("study*.txt")):
         y = np.loadtxt(f, dtype=np.float32, usecols=[0, 1, 2, 3, 7, 8, 9], ndmin=2).T
@@ -475,7 +478,7 @@ def imshow_cls(im, labels=None, pred=None, names=None, nmax=25, verbose=False, f
     )  # select batch index 0, block by channels
     n = min(len(blocks), nmax)  # number of plots
     m = min(8, round(n**0.5))  # 8 x 8 default
-    fig, ax = plt.subplots(math.ceil(n / m), m)  # 8 rows x n/8 cols
+    _fig, ax = plt.subplots(math.ceil(n / m), m)  # 8 rows x n/8 cols
     ax = ax.ravel() if m > 1 else [ax]
     # plt.subplots_adjust(wspace=0.05, hspace=0.05)
     for i in range(n):
@@ -496,8 +499,7 @@ def imshow_cls(im, labels=None, pred=None, names=None, nmax=25, verbose=False, f
 
 
 def plot_evolve(evolve_csv="path/to/evolve.csv"):
-    """
-    Plots hyperparameter evolution results from a given CSV, saving the plot and displaying best results.
+    """Plots hyperparameter evolution results from a given CSV, saving the plot and displaying best results.
 
     Example: from utils.plots import *; plot_evolve()
     """
@@ -527,8 +529,7 @@ def plot_evolve(evolve_csv="path/to/evolve.csv"):
 
 
 def plot_results(file="path/to/results.csv", dir=""):
-    """
-    Plots training results from a 'results.csv' file; accepts file path and directory as arguments.
+    """Plots training results from a 'results.csv' file; accepts file path and directory as arguments.
 
     Example: from utils.plots import *; plot_results('path/to/results.csv')
     """
@@ -558,8 +559,7 @@ def plot_results(file="path/to/results.csv", dir=""):
 
 
 def profile_idetection(start=0, stop=0, labels=(), save_dir=""):
-    """
-    Plots per-image iDetection logs, comparing metrics like storage and performance over time.
+    """Plots per-image iDetection logs, comparing metrics like storage and performance over time.
 
     Example: from utils.plots import *; profile_idetection()
     """
